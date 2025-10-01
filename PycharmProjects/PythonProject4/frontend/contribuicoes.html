@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <title>Contribuições - Comparador de Preços</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        header {
+            background: #4CAF50;
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            text-align: center;
+            font-size: 24px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .contrib-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .contrib-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .contrib-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .product-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .price {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .contrib-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .detail-item {
+            font-size: 14px;
+        }
+
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            color: #333;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-promo {
+            background: #f44336;
+            color: white;
+        }
+
+        .badge-verified {
+            background: #2196F3;
+            color: white;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #ddd;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>👥 Contribuições da Comunidade</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="/index.html" class="back-link">← Voltar</a>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Carregando contribuições...</p>
+        </div>
+
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <p>📭 Ainda não há contribuições.</p>
+            <p style="margin-top: 10px;">
+                <a href="/contribuir.html" style="color: #4CAF50;">Seja o primeiro a contribuir!</a>
+            </p>
+        </div>
+
+        <div id="contribuicoes"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        async function loadContribuicoes() {
+            const loading = document.getElementById('loading');
+            const emptyState = document.getElementById('emptyState');
+            const container = document.getElementById('contribuicoes');
+
+            try {
+                const response = await fetch(`${API_URL}/api/contribuicoes?limit=50`);
+                const contribuicoes = await response.json();
+
+                loading.style.display = 'none';
+
+                if (contribuicoes.length === 0) {
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                contribuicoes.forEach(contrib => {
+                    const card = document.createElement('div');
+                    card.className = 'contrib-card';
+
+                    const badges = [];
+                    if (contrib.em_promocao) {
+                        badges.push('<span class="badge badge-promo">🔥 PROMOÇÃO</span>');
+                    }
+                    if (contrib.verificado) {
+                        badges.push('<span class="badge badge-verified">✓ Verificado</span>');
+                    }
+
+                    const data = new Date(contrib.data_cadastro).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    card.innerHTML = `
+                        <div class="contrib-header">
+                            <div>
+                                <div class="product-name">${contrib.produto_nome}</div>
+                                ${contrib.marca ? `<div style="color: #666; font-size: 14px; margin-top: 4px;">${contrib.marca}</div>` : ''}
+                                <div style="margin-top: 8px;">${badges.join(' ')}</div>
+                            </div>
+                            <div class="price">R$ ${contrib.preco.toFixed(2)}</div>
+                        </div>
+                        <div class="contrib-details">
+                            <div class="detail-item">
+                                <span class="detail-label">🏪 Supermercado</span>
+                                <span class="detail-value">${contrib.supermercado.toUpperCase()}</span>
+                            </div>
+                            ${contrib.localizacao ? `
+                            <div class="detail-item">
+                                <span class="detail-label">📍 Localização</span>
+                                <span class="detail-value">${contrib.localizacao}</span>
+                            </div>
+                            ` : ''}
+                            <div class="detail-item">
+                                <span class="detail-label">📅 Data</span>
+                                <span class="detail-value">${data}</span>
+                            </div>
+                            ${contrib.usuario_nome ? `
+                            <div class="detail-item">
+                                <span class="detail-label">👤 Contribuidor</span>
+                                <span class="detail-value">${contrib.usuario_nome}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+
+                    container.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error('Erro ao carregar contribuições:', error);
+                loading.innerHTML = '<p style="color: #f44336;">❌ Erro ao carregar. Verifique se o servidor está rodando.</p>';
+            }
+        }
+
+        loadContribuicoes();
+    </script>
+</body>
+</html>

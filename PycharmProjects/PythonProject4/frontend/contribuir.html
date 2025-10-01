@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <title>Contribuir - Comparador de Preços</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .contribute-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .contribute-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .contribute-header h2 {
+            color: #4CAF50;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .contribute-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            height: 20px;
+            width: 20px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .submit-btn:hover {
+            background: #45a049;
+        }
+
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .stats-bar {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .stats-bar h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .photo-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin-top: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .photo-preview.show {
+            display: block;
+        }
+
+        .required {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🛒 Contribuir com Preço</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="/index.html" class="back-link">← Voltar para busca</a>
+
+        <div class="stats-bar" id="statsBar">
+            <h3>📊 Estatísticas da Comunidade</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalContrib">0</div>
+                    <div class="stat-label">Contribuições</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalProds">0</div>
+                    <div class="stat-label">Produtos</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalSupers">0</div>
+                    <div class="stat-label">Supermercados</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="contribHoje">0</div>
+                    <div class="stat-label">Hoje</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/foto.html" style="display: inline-block; background: #2196F3; color: white; padding: 15px 30px; border-radius: 10px; text-decoration: none; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                📸 Adicionar por Foto (+ Fácil!)
+            </a>
+        </div>
+
+        <div class="contribute-container">
+            <div class="contribute-header">
+                <h2>Adicionar Preço Manualmente</h2>
+                <p>Ajude a comunidade compartilhando preços que você encontrou!</p>
+            </div>
+
+            <div class="success-message" id="successMessage">
+                ✅ Preço adicionado com sucesso! Obrigado pela contribuição!
+            </div>
+
+            <div class="error-message" id="errorMessage">
+                ❌ Erro ao adicionar preço. Tente novamente.
+            </div>
+
+            <form id="contributeForm">
+                <div class="form-group">
+                    <label for="produtoNome">Nome do Produto <span class="required">*</span></label>
+                    <input type="text" id="produtoNome" name="produtoNome" required
+                           placeholder="Ex: Arroz Branco 5kg">
+                </div>
+
+                <div class="form-group">
+                    <label for="produtoMarca">Marca</label>
+                    <input type="text" id="produtoMarca" name="produtoMarca"
+                           placeholder="Ex: Tio João">
+                </div>
+
+                <div class="form-group">
+                    <label for="supermercado">Supermercado/Loja <span class="required">*</span></label>
+                    <input type="text" id="supermercado" name="supermercado" required
+                           placeholder="Ex: Carrefour, Pão de Açúcar, Extra">
+                </div>
+
+                <div class="form-group">
+                    <label for="preco">Preço (R$) <span class="required">*</span></label>
+                    <input type="number" id="preco" name="preco" step="0.01" min="0.01" required
+                           placeholder="Ex: 23.90">
+                </div>
+
+                <div class="form-group">
+                    <label for="localizacao">Localização (Cidade/Bairro)</label>
+                    <input type="text" id="localizacao" name="localizacao"
+                           placeholder="Ex: São Paulo - Paulista">
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="emPromocao" name="emPromocao">
+                    <label for="emPromocao">Este produto está em promoção/oferta</label>
+                </div>
+
+                <div class="form-group">
+                    <label for="observacao">Observações</label>
+                    <textarea id="observacao" name="observacao"
+                              placeholder="Informações adicionais sobre o produto ou promoção..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="usuarioNome">Seu Nome (opcional)</label>
+                    <input type="text" id="usuarioNome" name="usuarioNome"
+                           placeholder="Seu nome ou apelido">
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    📤 Enviar Contribuição
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_URL}/api/estatisticas-contribuicoes`);
+                const stats = await response.json();
+
+                document.getElementById('totalContrib').textContent = stats.total_contribuicoes;
+                document.getElementById('totalProds').textContent = stats.total_produtos;
+                document.getElementById('totalSupers').textContent = stats.total_supermercados;
+                document.getElementById('contribHoje').textContent = stats.contribuicoes_hoje;
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+            }
+        }
+
+        // Submit form
+        document.getElementById('contributeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const successMsg = document.getElementById('successMessage');
+            const errorMsg = document.getElementById('errorMessage');
+
+            // Hide previous messages
+            successMsg.classList.remove('show');
+            errorMsg.classList.remove('show');
+
+            // Disable button
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Enviando...';
+
+            const formData = {
+                produto_nome: document.getElementById('produtoNome').value,
+                produto_marca: document.getElementById('produtoMarca').value || null,
+                supermercado: document.getElementById('supermercado').value,
+                preco: parseFloat(document.getElementById('preco').value),
+                em_promocao: document.getElementById('emPromocao').checked,
+                localizacao: document.getElementById('localizacao').value || null,
+                observacao: document.getElementById('observacao').value || null,
+                usuario_nome: document.getElementById('usuarioNome').value || null
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/contribuir`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    successMsg.classList.add('show');
+                    document.getElementById('contributeForm').reset();
+                    loadStats(); // Reload stats
+
+                    // Scroll to success message
+                    successMsg.scrollIntoView({ behavior: 'smooth' });
+
+                    // Hide success message after 5 seconds
+                    setTimeout(() => {
+                        successMsg.classList.remove('show');
+                    }, 5000);
+                } else {
+                    const error = await response.json();
+                    errorMsg.textContent = `❌ ${error.detail || 'Erro ao adicionar preço'}`;
+                    errorMsg.classList.add('show');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                errorMsg.textContent = '❌ Erro de conexão. Verifique se o servidor está rodando.';
+                errorMsg.classList.add('show');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📤 Enviar Contribuição';
+            }
+        });
+
+        // Load stats on page load
+        loadStats();
+    </script>
+</body>
+</html>
