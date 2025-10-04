@@ -50,6 +50,11 @@ class Preco(Base):
     foto_url = Column(String)  # Photo proof
     verificado = Column(Boolean, default=False)  # Admin verified?
 
+    # Geolocation fields
+    latitude = Column(Float, index=True)  # Store latitude
+    longitude = Column(Float, index=True)  # Store longitude
+    endereco = Column(String)  # Full address
+
     produto = relationship("Produto", back_populates="precos")
 
 
@@ -65,6 +70,38 @@ class Alerta(Base):
     data_ultima_notificacao = Column(DateTime)
 
     produto = relationship("Produto", back_populates="alertas")
+
+
+class Carteira(Base):
+    """Carteira de criptomoeda do usuário"""
+    __tablename__ = "carteiras"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_nome = Column(String, unique=True, index=True, nullable=False)
+    cpf = Column(String, unique=True, index=True)  # CPF do usuário
+    senha_hash = Column(String)  # Senha criptografada
+    saldo = Column(Float, default=0.0)  # Saldo em tokens
+    data_criacao = Column(DateTime, default=datetime.now)
+    ultima_atualizacao = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    transacoes = relationship("Transacao", back_populates="carteira")
+
+
+class Transacao(Base):
+    """Histórico de transações de tokens"""
+    __tablename__ = "transacoes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    carteira_id = Column(Integer, ForeignKey("carteiras.id"), nullable=False)
+    tipo = Column(String, nullable=False)  # "mineracao", "busca", "bonus"
+    quantidade = Column(Float, nullable=False)  # Positivo = ganho, Negativo = gasto
+    descricao = Column(String)
+    data_transacao = Column(DateTime, default=datetime.now, index=True)
+
+    # Referências opcionais
+    preco_id = Column(Integer, ForeignKey("precos.id"))  # Se foi por contribuição
+
+    carteira = relationship("Carteira", back_populates="transacoes")
 
 
 # Database connection

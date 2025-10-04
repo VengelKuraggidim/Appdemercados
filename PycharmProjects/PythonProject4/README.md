@@ -4,13 +4,15 @@ Sistema completo para comparar preços de produtos em diferentes supermercados b
 
 ## 🚀 Funcionalidades
 
-- ✅ **Busca em múltiplos supermercados** (Carrefour, Pão de Açúcar, Extra, Mercado Livre)
-- ✅ **Comparação de preços** em tempo real
-- ✅ **Histórico de preços** - acompanhe a variação ao longo do tempo
-- ✅ **Alertas de preço** - seja notificado quando o preço cair
-- ✅ **PWA (Progressive Web App)** - funciona como app nativo no Android/iOS
+- ✅ **Buscar preços** de produtos em vários supermercados
+- ✅ **Contribuir manualmente** adicionando preços que você encontrou
+- ✅ **Contribuir por foto** usando OCR para detectar preços automaticamente
+- ✅ **Comparação de preços** entre diferentes estabelecimentos
+- ✅ **Histórico de preços** e contribuições
+- ✅ **Dados persistentes** - salvos permanentemente em banco SQLite
+- ✅ **PWA (Progressive Web App)** - funciona como app nativo
 - ✅ **API REST** completa e documentada
-- ✅ **Busca paralela** para resultados mais rápidos
+- 🪙 **Sistema de Criptomoeda (PreçoCoin)** - Ganhe tokens contribuindo!
 
 ## 📦 Supermercados Suportados
 
@@ -61,39 +63,57 @@ cp .env.example .env
 
 ## 🚀 Como Usar
 
-### Iniciar o servidor
+### ⚡ Forma Rápida (Recomendado)
 
 ```bash
-python main.py
+# Iniciar o app completo
+./start_app.sh
+```
+
+O app estará disponível em: **http://localhost:8080**
+
+Para parar:
+```bash
+./stop_app.sh
+```
+
+### 📝 Forma Manual
+
+#### Iniciar Backend (API)
+```bash
+python -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+```
+
+#### Iniciar Frontend
+```bash
+cd frontend
+python -m http.server 8080
 ```
 
 O servidor estará disponível em:
+- **Frontend**: http://localhost:8080
 - **API**: http://localhost:8000
 - **Documentação**: http://localhost:8000/docs
-- **Frontend**: Servir os arquivos da pasta `frontend/`
 
-### Servir o Frontend
+## 💾 Persistência de Dados
 
-Para servir o frontend PWA, você pode usar qualquer servidor HTTP. Por exemplo:
+**Importante:** Todos os dados são salvos permanentemente no banco de dados `precos.db`
 
-```bash
-# Opção 1: Python http.server
-cd frontend
-python -m http.server 3000
+- ✅ **Independente do navegador** - Dados não dependem de cache ou cookies
+- ✅ **Permanente** - Dados permanecem mesmo após fechar o app
+- ✅ **Portável** - Arquivo `precos.db` pode ser copiado/backupado
 
-# Opção 2: npm http-server (instale com: npm install -g http-server)
-cd frontend
-http-server -p 3000
-```
-
-Acesse: http://localhost:3000
-
-### Testar os Scrapers
+### Verificar dados salvos
 
 ```bash
-python test_scraper.py "arroz"
-# ou
-python test_scraper.py
+# Ver estatísticas do banco
+python verificar_banco.py
+
+# Testar persistência
+python teste_persistencia.py
+
+# Popular com produtos de exemplo
+python popular_produtos_basicos.py
 ```
 
 ## 📱 Instalar como App Mobile
@@ -104,14 +124,88 @@ python test_scraper.py
 
 O app funcionará como um aplicativo nativo!
 
+## 🪙 Sistema de Criptomoeda - PreçoCoin (PRC)
+
+O app possui um sistema de economia baseado em tokens para incentivar contribuições!
+
+### Como Funciona
+
+#### 💰 Ganhe Tokens:
+- **5 tokens** ao criar sua carteira (bônus de boas-vindas)
+- **10 tokens** por cada preço que você adicionar ao app
+
+#### 💸 Gaste Tokens:
+- **1 token** por cada busca de produto que você fizer
+
+### Vantagens do Sistema
+- ✅ Incentiva usuários a contribuírem com preços
+- ✅ Gamificação: quanto mais você contribui, mais você pode buscar
+- ✅ Sistema justo: todos começam com tokens gratuitos
+- ✅ Ranking de mineradores (maiores contribuidores)
+
+### Endpoints de Carteira
+
+#### Criar Carteira
+```bash
+POST /api/carteira/criar
+{
+  "usuario_nome": "seu_usuario"
+}
+```
+
+#### Consultar Saldo
+```bash
+GET /api/carteira/{usuario_nome}
+
+# Resposta:
+{
+  "usuario_nome": "seu_usuario",
+  "saldo": 15.0,
+  "total_minerado": 20.0,
+  "total_gasto": 5.0,
+  "ultima_atualizacao": "2024-01-01T10:00:00"
+}
+```
+
+#### Histórico de Transações
+```bash
+GET /api/carteira/{usuario_nome}/historico?limite=50
+```
+
+#### Verificar Saldo para Busca
+```bash
+GET /api/carteira/{usuario_nome}/pode-buscar
+```
+
+#### Informações do Sistema
+```bash
+GET /api/economia-token/info
+```
+
+#### Ranking de Mineradores
+```bash
+GET /api/ranking-mineradores?limite=10
+```
+
 ## 🔌 API Endpoints
 
-### Buscar Produtos
+### Buscar Produtos (Custa 1 Token)
 ```bash
-POST /api/buscar
+POST /api/buscar?usuario_nome=seu_usuario
 {
   "termo": "arroz",
   "supermercados": ["carrefour", "pao_acucar"]  # opcional
+}
+
+# Resposta inclui informação de tokens:
+{
+  "termo": "arroz",
+  "total": 10,
+  "produtos": [...],
+  "tokens": {
+    "tokens_gastos": 1,
+    "saldo_restante": 14
+  }
 }
 ```
 
@@ -207,6 +301,10 @@ PythonProject4/
 - [ ] Modo escuro
 - [ ] Autenticação de usuários
 - [ ] Exportar comparações em PDF
+- [x] **Sistema de criptomoeda para gamificação** ✅
+- [ ] Transferência de tokens entre usuários
+- [ ] Marketplace de tokens
+- [ ] Recompensas especiais para top contribuidores
 
 ## 📄 Licença
 

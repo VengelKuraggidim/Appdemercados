@@ -3,6 +3,9 @@ const API_URL = 'http://localhost:8000';
 let stream = null;
 let currentImage = null;
 let userLocation = null;
+let userLatitude = null;
+let userLongitude = null;
+let userCity = null;
 
 // Get user location on page load
 window.addEventListener('DOMContentLoaded', () => {
@@ -64,6 +67,10 @@ function getUserLocation() {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
 
+                // Store coordinates globally
+                userLatitude = lat;
+                userLongitude = lon;
+
                 // Try to get city name from coordinates (using a free API)
                 try {
                     const response = await fetch(
@@ -74,6 +81,9 @@ function getUserLocation() {
                     const city = data.address.city || data.address.town || data.address.village;
                     const state = data.address.state;
                     const suburb = data.address.suburb || data.address.neighbourhood;
+
+                    // Store city for geocoding
+                    userCity = city;
 
                     if (suburb && city) {
                         userLocation = `${city} - ${suburb}`;
@@ -86,6 +96,7 @@ function getUserLocation() {
                     locationText.textContent = `Localização: ${userLocation}`;
                 } catch (error) {
                     userLocation = 'Localização detectada';
+                    userCity = 'Brasil';
                     locationText.textContent = `Localização detectada (${lat.toFixed(2)}, ${lon.toFixed(2)})`;
                 }
             },
@@ -94,6 +105,28 @@ function getUserLocation() {
                 console.error('Geolocation error:', error);
             }
         );
+    }
+}
+
+async function geocodeStoreAddress(storeName, city) {
+    try {
+        const query = `${storeName}, ${city || 'Brasil'}`;
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&accept-language=pt-BR`
+        );
+        const data = await response.json();
+
+        if (data && data.length > 0) {
+            return {
+                latitude: parseFloat(data[0].lat),
+                longitude: parseFloat(data[0].lon),
+                display_name: data[0].display_name
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error('Erro ao geocodificar:', error);
+        return null;
     }
 }
 
@@ -237,6 +270,18 @@ async function submitContribution() {
     // Show loading
     document.getElementById('loading').classList.add('show');
     document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').textContent = '🔍 Buscando localização...';
+
+    // Try to geocode store address
+    let storeLocation = null;
+    if (supermercado && userCity) {
+        storeLocation = await geocodeStoreAddress(supermercado, userCity);
+        if (storeLocation) {
+            console.log('✓ Localização da loja:', storeLocation.display_name);
+        }
+    }
+
+    document.getElementById('submitBtn').textContent = '⏳ Enviando...';
 
     try {
         // Create form data
@@ -246,6 +291,15 @@ async function submitContribution() {
 
         if (userLocation) {
             formData.append('localizacao', userLocation);
+        }
+
+        // Send store coordinates (or user location as fallback)
+        if (storeLocation) {
+            formData.append('latitude', storeLocation.latitude);
+            formData.append('longitude', storeLocation.longitude);
+        } else if (userLatitude && userLongitude) {
+            formData.append('latitude', userLatitude);
+            formData.append('longitude', userLongitude);
         }
 
         const observacao = document.getElementById('observacaoInput').value.trim();

@@ -235,6 +235,9 @@
             <div class="contribute-header">
                 <h2>Adicionar Preço Manualmente</h2>
                 <p>Ajude a comunidade compartilhando preços que você encontrou!</p>
+                <div style="background: #E8F5E9; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px; color: #2E7D32;">
+                    💾 <strong>Dados salvos permanentemente</strong> - Suas contribuições ficam guardadas no banco de dados, mesmo se você limpar o cache do navegador
+                </div>
             </div>
 
             <div class="success-message" id="successMessage">
@@ -302,6 +305,51 @@
 
     <script>
         const API_URL = 'http://localhost:8000';
+        let userLatitude = null;
+        let userLongitude = null;
+
+        // Get user city location for geocoding store addresses
+        window.addEventListener('DOMContentLoaded', () => {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        userLatitude = position.coords.latitude;
+                        userLongitude = position.coords.longitude;
+                        console.log('✓ Sua localização obtida:', userLatitude, userLongitude);
+                    },
+                    (error) => {
+                        console.log('Geolocalização não disponível:', error);
+                    }
+                );
+            }
+        });
+
+        // Geocode store address to get lat/lon
+        async function geocodeStoreAddress(storeName, userCity) {
+            try {
+                // Build search query: "Store Name + City"
+                const query = `${storeName}, ${userCity || 'Brasil'}`;
+
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&accept-language=pt-BR`
+                );
+
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    return {
+                        latitude: parseFloat(data[0].lat),
+                        longitude: parseFloat(data[0].lon),
+                        display_name: data[0].display_name
+                    };
+                }
+
+                return null;
+            } catch (error) {
+                console.error('Erro ao geocodificar endereço:', error);
+                return null;
+            }
+        }
 
         // Load statistics
         async function loadStats() {
@@ -332,17 +380,37 @@
 
             // Disable button
             submitBtn.disabled = true;
+            submitBtn.textContent = '🔍 Buscando localização...';
+
+            const storeName = document.getElementById('supermercado').value;
+            const userCity = document.getElementById('localizacao').value;
+
+            // Try to geocode the store address
+            let storeLocation = null;
+            if (storeName && userCity) {
+                storeLocation = await geocodeStoreAddress(storeName, userCity);
+
+                if (storeLocation) {
+                    console.log('✓ Localização da loja encontrada:', storeLocation.display_name);
+                } else {
+                    console.log('⚠️ Não foi possível encontrar localização da loja');
+                }
+            }
+
             submitBtn.textContent = '⏳ Enviando...';
 
             const formData = {
                 produto_nome: document.getElementById('produtoNome').value,
                 produto_marca: document.getElementById('produtoMarca').value || null,
-                supermercado: document.getElementById('supermercado').value,
+                supermercado: storeName,
                 preco: parseFloat(document.getElementById('preco').value),
                 em_promocao: document.getElementById('emPromocao').checked,
-                localizacao: document.getElementById('localizacao').value || null,
+                localizacao: userCity || null,
                 observacao: document.getElementById('observacao').value || null,
-                usuario_nome: document.getElementById('usuarioNome').value || null
+                usuario_nome: document.getElementById('usuarioNome').value || null,
+                // Use store location if found, otherwise use user location as fallback
+                latitude: storeLocation ? storeLocation.latitude : userLatitude,
+                longitude: storeLocation ? storeLocation.longitude : userLongitude
             };
 
             try {

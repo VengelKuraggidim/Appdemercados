@@ -14,6 +14,8 @@ class PrecoManualCreate(BaseModel):
     observacao: Optional[str] = Field(None, max_length=500, description="Observações adicionais")
     foto_url: Optional[str] = Field(None, description="URL da foto do preço (comprovante)")
     usuario_nome: Optional[str] = Field(None, max_length=100, description="Nome de quem cadastrou")
+    latitude: Optional[float] = Field(None, description="Latitude da localização")
+    longitude: Optional[float] = Field(None, description="Longitude da localização")
 
     @validator('preco')
     def validar_preco(cls, v):
