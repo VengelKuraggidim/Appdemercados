@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug OCR - Comparador de Preços</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 30px;
+        }
+
+        .upload-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-label:hover {
+            background: #45a049;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .panel h2 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .text-area {
+            width: 100%;
+            min-height: 400px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            resize: vertical;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .products-list {
+            margin-top: 15px;
+        }
+
+        .product-item {
+            background: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .product-item input {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .btn-remove {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-add {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn-save {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn-save:hover {
+            background: #45a049;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .results {
+                grid-template-columns: 1fr;
+            }
+
+            .product-item {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug OCR - Nota Fiscal</h1>
+
+        <div class="upload-section">
+            <label for="fileInput" class="file-label">📸 Escolher Nota Fiscal</label>
+            <input type="file" id="fileInput" class="file-input" accept="image/*">
+            <span id="fileName" style="margin-left: 15px; color: #666;"></span>
+        </div>
+
+        <div class="loading" id="loading">
+            <p>🔄 Processando imagem...</p>
+        </div>
+
+        <div class="results" id="results" style="display: none;">
+            <!-- Texto Extraído -->
+            <div class="panel">
+                <h2>📄 Texto Extraído (OCR)</h2>
+                <textarea id="textoExtraido" class="text-area" readonly></textarea>
+            </div>
+
+            <!-- Dados Editáveis -->
+            <div class="panel">
+                <h2>✏️ Dados Editáveis</h2>
+
+                <div class="form-group">
+                    <label>Supermercado</label>
+                    <input type="text" id="supermercado" placeholder="Nome do supermercado">
+                </div>
+
+                <div class="form-group">
+                    <label>Data da Compra</label>
+                    <input type="datetime-local" id="dataCompra">
+                </div>
+
+                <div class="form-group">
+                    <label>Total da Nota (R$)</label>
+                    <input type="number" id="totalNota" step="0.01" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label>Seu Nome de Usuário</label>
+                    <input type="text" id="usuarioNome" placeholder="Seu nome">
+                </div>
+
+                <h3 style="margin: 20px 0 10px 0;">🛒 Produtos</h3>
+                <div class="products-list" id="productsList"></div>
+                <button class="btn-add" onclick="adicionarProduto()">+ Adicionar Produto</button>
+
+                <button class="btn-save" onclick="salvarNota()">💾 Salvar no Banco de Dados</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/api';
+        let produtos = [];
+
+        // Preencher usuário logado
+        window.addEventListener('load', () => {
+            const usuarioLogado = localStorage.getItem('usuario_nome');
+            if (usuarioLogado) {
+                document.getElementById('usuarioNome').value = usuarioLogado;
+            }
+        });
+
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('results').style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_URL}/debug-ocr`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                console.log('Resposta completa do servidor:', data);
+                console.log('Texto completo:', data.texto_completo);
+                console.log('Total de caracteres:', data.total_caracteres);
+                console.log('Total de linhas:', data.total_linhas);
+                console.log('Debug info:', data.debug_info);
+
+                // Mostrar texto extraído
+                const textoExtraido = data.texto_completo || data.todas_linhas?.join('\n') || '';
+                console.log('Texto a ser exibido:', textoExtraido);
+                document.getElementById('textoExtraido').value = textoExtraido;
+
+                // Preencher campos
+                document.getElementById('supermercado').value = data.supermercado_identificado || '';
+
+                if (data.data_identificada) {
+                    const date = new Date(data.data_identificada);
+                    document.getElementById('dataCompra').value = date.toISOString().slice(0, 16);
+                }
+
+                document.getElementById('totalNota').value = data.total_encontrado || '';
+
+                // Carregar produtos
+                produtos = data.produtos || [];
+                console.log('Produtos encontrados:', produtos);
+                renderizarProdutos();
+
+                // Se não houver texto, mostrar informação
+                if (!textoExtraido || textoExtraido.trim() === '') {
+                    alert('⚠️ Nenhum texto foi extraído da imagem. Verifique se a imagem está nítida e com boa iluminação.');
+                }
+
+                document.getElementById('loading').classList.remove('show');
+                document.getElementById('results').style.display = 'grid';
+
+            } catch (error) {
+                console.error('Erro completo:', error);
+                alert('Erro ao processar imagem: ' + error.message);
+                document.getElementById('loading').classList.remove('show');
+            }
+        });
+
+        function renderizarProdutos() {
+            const container = document.getElementById('productsList');
+            container.innerHTML = '';
+
+            produtos.forEach((prod, index) => {
+                const div = document.createElement('div');
+                div.className = 'product-item';
+                div.innerHTML = `
+                    <input type="text" value="${prod.nome}" onchange="produtos[${index}].nome = this.value" placeholder="Nome do produto">
+                    <input type="number" value="${prod.preco}" step="0.01" onchange="produtos[${index}].preco = parseFloat(this.value)" placeholder="Preço">
+                    <input type="number" value="${prod.quantidade || 1}" onchange="produtos[${index}].quantidade = parseInt(this.value)" placeholder="Qtd">
+                    <button class="btn-remove" onclick="removerProduto(${index})">🗑️</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function adicionarProduto() {
+            produtos.push({ nome: '', preco: 0, quantidade: 1 });
+            renderizarProdutos();
+        }
+
+        function removerProduto(index) {
+            produtos.splice(index, 1);
+            renderizarProdutos();
+        }
+
+        async function salvarNota() {
+            const usuarioNome = document.getElementById('usuarioNome').value.trim();
+            if (!usuarioNome) {
+                alert('Digite seu nome de usuário');
+                return;
+            }
+
+            const supermercado = document.getElementById('supermercado').value.trim();
+            if (!supermercado) {
+                alert('Digite o nome do supermercado');
+                return;
+            }
+
+            // Filtrar produtos válidos
+            const produtosValidos = produtos.filter(p => p.nome && p.preco > 0);
+            if (produtosValidos.length === 0) {
+                alert('Adicione pelo menos um produto com nome e preço');
+                return;
+            }
+
+            const dataCompra = document.getElementById('dataCompra').value;
+
+            const dados = {
+                sucesso: true,
+                supermercado: supermercado,
+                data_compra: dataCompra ? new Date(dataCompra).toISOString() : null,
+                total_nota: parseFloat(document.getElementById('totalNota').value) || null,
+                produtos: produtosValidos,
+                verificado: true  // Marcado como verificado manualmente
+            };
+
+            console.log('Enviando dados:', dados);
+            console.log('Usuário:', usuarioNome);
+
+            try {
+                // Enviar usando FormData
+                const formData = new FormData();
+                formData.append('usuario_nome', usuarioNome);
+                formData.append('dados_manuais', JSON.stringify(dados));
+
+                console.log('FormData criado com sucesso');
+
+                const response = await fetch(`${API_URL}/escanear-nota-fiscal`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Response status:', response.status);
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Resultado:', result);
+                    alert(`✅ Sucesso! ${result.total_produtos} produtos salvos. Você ganhou ${result.tokens_ganhos} tokens!`);
+                    window.location.href = '/';
+                } else {
+                    const errorText = await response.text();
+                    console.error('Erro do servidor:', errorText);
+                    try {
+                        const error = JSON.parse(errorText);
+                        alert('Erro ao salvar: ' + (error.detail || errorText));
+                    } catch {
+                        alert('Erro ao salvar: ' + errorText);
+                    }
+                }
+            } catch (error) {
+                console.error('Erro completo:', error);
+                alert('Erro ao salvar nota fiscal: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

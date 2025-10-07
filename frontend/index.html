@@ -1,0 +1,2198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="description" content="Compare preços de produtos em diferentes supermercados">
+
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+
+    <title>Comparador de Preços</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+            --danger-color: #f44336;
+            --warning-color: #ff9800;
+            --success-color: #4CAF50;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+            position: relative;
+        }
+
+        /* Sidebar Esquerdo */
+        .sidebar {
+            width: 280px;
+            background: var(--card-bg);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 50;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+
+        /* Carteira */
+        .wallet-card {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #45a049 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .wallet-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .wallet-balance {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .wallet-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .wallet-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            font-size: 13px;
+        }
+
+        .wallet-stat {
+            flex: 1;
+        }
+
+        .wallet-stat-value {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .wallet-stat-label {
+            opacity: 0.8;
+            font-size: 11px;
+        }
+
+        /* Login/User Section */
+        .user-section {
+            background: var(--bg-color);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .user-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .user-input-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .user-input-group input {
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .user-input-group button {
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .user-details {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-status {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .btn-logout {
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Menu Items */
+        .sidebar-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-color);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text-color);
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .menu-item:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .menu-item-icon {
+            font-size: 20px;
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            margin-left: 280px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .content-area.expanded {
+            margin-left: 0;
+        }
+
+        /* Toggle Button */
+        .sidebar-toggle {
+            position: fixed;
+            left: 290px;
+            top: 10px;
+            z-index: 999;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .sidebar-toggle:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+        }
+
+        .sidebar-toggle.sidebar-hidden {
+            left: 10px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: var(--primary-color);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 24px;
+            text-align: center;
+        }
+
+        .search-box {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+
+        .search-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .supermarket-filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            padding: 8px 16px;
+            background: var(--bg-color);
+            border: 2px solid var(--border-color);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .filter-chip.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            margin-top: 20px;
+        }
+
+        .product-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .product-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .product-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .price {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--success-color);
+        }
+
+        .supermarket-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--secondary-color);
+            color: white;
+            border-radius: 6px;
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .promo-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: var(--danger-color);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .product-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .product-link:hover {
+            text-decoration: underline;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            header h1 {
+                font-size: 20px;
+            }
+
+            .search-input-group {
+                flex-direction: column;
+            }
+
+            .price {
+                font-size: 24px;
+            }
+
+            .sidebar {
+                width: 100%;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .content-area {
+                margin-left: 0 !important;
+            }
+
+            .sidebar-toggle {
+                left: 10px;
+                top: 10px;
+            }
+
+            .sidebar-toggle.sidebar-hidden {
+                left: 10px;
+            }
+        }
+
+        .install-prompt {
+            background: var(--secondary-color);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .install-prompt.show {
+            display: block;
+        }
+
+        .install-prompt button {
+            margin: 10px;
+            background: white;
+            color: var(--secondary-color);
+        }
+
+        /* Estilos para análise de economia */
+        .economia-info {
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .economia-comparacao {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        .economia-local {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .economia-local.melhor {
+            border: 2px solid var(--success-color);
+            background: #e8f5e9;
+        }
+
+        .economia-local-titulo {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #555;
+        }
+
+        .economia-detalhes {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .economia-linha {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .economia-total {
+            font-weight: bold;
+            color: var(--success-color);
+            padding-top: 6px;
+            border-top: 1px solid #ddd;
+            margin-top: 4px;
+        }
+
+        .economia-badge {
+            display: inline-block;
+            background: var(--success-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .info-tooltip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background: var(--secondary-color);
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 6px;
+        }
+
+        .info-tooltip:hover .tooltip-content {
+            display: block;
+        }
+
+        .tooltip-content {
+            display: none;
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .tooltip-content::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #333;
+        }
+
+        .economia-resumo {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            color: var(--success-color);
+        }
+
+        .economia-resumo.negativa {
+            color: var(--danger-color);
+        }
+
+        @media (max-width: 600px) {
+            .economia-comparacao {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Animações para notificações */
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+        ☰
+    </button>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <!-- User Section -->
+        <div class="user-section" id="userSection">
+            <!-- Login/Register Form -->
+            <div id="authForm">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button type="button" id="btnLogin" style="flex: 1; background: var(--primary-color); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">Login</button>
+                    <button type="button" id="btnRegistro" style="flex: 1; background: #e0e0e0; color: #333; border: 2px solid #ddd; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">Registrar</button>
+                </div>
+
+                <!-- Login Form -->
+                <div class="user-input-group" id="loginForm">
+                    <label style="font-size: 12px;">CPF</label>
+                    <input type="text" id="cpfLogin" placeholder="000.000.000-00" maxlength="14">
+                    <label style="font-size: 12px;">Senha</label>
+                    <input type="password" id="senhaLogin" placeholder="Digite sua senha">
+                    <button type="button" id="btnEntrar">Entrar</button>
+                </div>
+
+                <!-- Register Form -->
+                <div class="user-input-group" id="registerForm" style="display: none;">
+                    <label style="font-size: 12px;">Nome</label>
+                    <input type="text" id="nomeRegistro" placeholder="Seu nome">
+                    <label style="font-size: 12px;">CPF</label>
+                    <input type="text" id="cpfRegistro" placeholder="000.000.000-00" maxlength="14">
+                    <label style="font-size: 12px;">Senha</label>
+                    <input type="password" id="senhaRegistro" placeholder="Mínimo 4 caracteres">
+                    <button type="button" id="btnCriarConta">Criar Conta</button>
+                </div>
+            </div>
+
+            <!-- User Info (shown when logged in) -->
+            <div class="user-info" id="userInfo" style="display: none;">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-details">
+                    <div class="user-name" id="userName"></div>
+                    <div class="user-status">Conectado</div>
+                </div>
+                <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+            </div>
+        </div>
+
+        <!-- Wallet Card -->
+        <div class="wallet-card" id="walletCard" style="display: none;">
+            <div class="wallet-header">
+                💰 Minha Carteira
+            </div>
+            <div class="wallet-balance" id="walletBalance">0</div>
+            <div class="wallet-label">Tokens disponíveis</div>
+            <div class="wallet-stats">
+                <div class="wallet-stat">
+                    <div class="wallet-stat-value" id="tokensGanhos">0</div>
+                    <div class="wallet-stat-label">Ganhos</div>
+                </div>
+                <div class="wallet-stat">
+                    <div class="wallet-stat-value" id="tokensGastos">0</div>
+                    <div class="wallet-stat-label">Gastos</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Items -->
+        <div class="sidebar-menu">
+            <a href="#" class="menu-item" onclick="abrirConfigTransporte(); return false;">
+                <span class="menu-item-icon">🚗</span>
+                Combustível/Transporte
+            </a>
+            <a href="#" class="menu-item" onclick="mostrarCarteira(); return false;">
+                <span class="menu-item-icon">💰</span>
+                Carteira
+            </a>
+            <a href="#" class="menu-item" onclick="mostrarDAO(); return false;">
+                <span class="menu-item-icon">🏛️</span>
+                DAO - Governança
+            </a>
+            <a href="#" class="menu-item" onclick="mostrarValidacoes(); return false;">
+                <span class="menu-item-icon">✓</span>
+                Validar Contribuições
+            </a>
+            <a href="/contribuicoes.html" class="menu-item">
+                <span class="menu-item-icon">👥</span>
+                Ver Contribuições
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-layout">
+        <div class="content-area" id="contentArea">
+            <header id="headerComparador">
+                <div class="container">
+                    <h1>🛒 Comparador de Preços</h1>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px; margin-top: 15px; justify-content: center; flex-wrap: wrap;">
+                        <a href="/contribuir.html" style="background: var(--primary-color); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: background 0.3s;" onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='var(--primary-color)'">
+                            ➕ Adicionar Preço
+                        </a>
+                        <a href="/scanner.html" style="background: #764ba2; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: background 0.3s;" onmouseover="this.style.background='#667eea'" onmouseout="this.style.background='#764ba2'">
+                            📸 Escanear Nota
+                        </a>
+                    </div>
+                </div>
+            </header>
+
+            <div class="container">
+        <!-- Comparador de Preços (Padrão) -->
+        <div id="comparadorView">
+            <div class="search-box">
+                <div class="search-input-group">
+                    <input type="text" id="searchInput" placeholder="Digite o nome do produto (ex: arroz, feijão, café...)">
+                    <button id="searchBtn" onclick="buscarProdutos()">🔍 Buscar</button>
+                </div>
+
+                <div class="supermarket-filters" id="supermarketFilters">
+                    <div class="filter-chip active" data-market="all">Todos</div>
+                    <div class="filter-chip" data-market="carrefour">Carrefour</div>
+                    <div class="filter-chip" data-market="pao_acucar">Pão de Açúcar</div>
+                    <div class="filter-chip" data-market="extra">Extra</div>
+                    <div class="filter-chip" data-market="mercado_livre">Mercado Livre</div>
+                    <div class="filter-chip" data-market="loja_descontos">Loja dos Descontos</div>
+                </div>
+            </div>
+
+            <div class="stats" id="stats" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalProdutos">0</div>
+                    <div class="stat-label">Produtos Encontrados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="melhorPreco">R$ 0,00</div>
+                    <div class="stat-label">Melhor Preço</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="economia">R$ 0,00</div>
+                    <div class="stat-label">Economia Potencial</div>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Buscando melhores preços...</p>
+            </div>
+
+            <div class="empty-state" id="emptyState">
+                <p>🔍 Digite um produto para começar a buscar</p>
+            </div>
+
+            <div class="results" id="results"></div>
+        </div>
+
+        <!-- Carteira View (Oculto por padrão) -->
+        <div id="carteiraView" style="display: none;">
+            <div style="background: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
+                <h2 style="font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    💰 Minha Carteira
+                    <button onclick="voltarComparador()" style="margin-left: auto; background: #e0e0e0; color: #333; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer;">← Voltar</button>
+                </h2>
+
+                <!-- Saldo -->
+                <div style="background: linear-gradient(135deg, var(--primary-color) 0%, #45a049 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);">
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Saldo Disponível</div>
+                    <div style="font-size: 48px; font-weight: bold;" id="carteiraViewSaldo">0</div>
+                    <div style="font-size: 16px; opacity: 0.9;">tokens</div>
+                </div>
+
+                <!-- Estatísticas -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                    <div style="background: #e8f5e9; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; color: var(--success-color);" id="carteiraViewGanhos">0</div>
+                        <div style="font-size: 14px; color: #666; margin-top: 5px;">Total Ganho</div>
+                    </div>
+                    <div style="background: #ffebee; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; color: var(--danger-color);" id="carteiraViewGastos">0</div>
+                        <div style="font-size: 14px; color: #666; margin-top: 5px;">Total Gasto</div>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; color: var(--secondary-color);" id="carteiraViewTransacoes">0</div>
+                        <div style="font-size: 14px; color: #666; margin-top: 5px;">Transações</div>
+                    </div>
+                </div>
+
+                <!-- Reputação -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+                    <h3 style="font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        ⭐ Sistema de Reputação
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 36px; font-weight: bold;" id="carteiraReputacao">100</div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">Pontos de Reputação</div>
+                            <div style="font-size: 12px; opacity: 0.8; margin-top: 3px;" id="carteiraNivelConfianca">Confiável</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold;" id="carteiraValidacoesFeitas">0</div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">Validações Feitas</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold;" id="carteiraValidacoesRecebidas">0</div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">Validações Recebidas</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #a5d6a7;" id="carteiraValidacoesPositivas">0</div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">✓ Positivas</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #ef9a9a;" id="carteiraValidacoesNegativas">0</div>
+                            <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">✗ Negativas</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.15); border-radius: 8px; font-size: 13px; line-height: 1.6;">
+                        <strong>💡 Como ganhar reputação:</strong><br>
+                        <div style="margin-top: 8px; margin-left: 12px;">
+                            • <strong>+2 pts</strong> - Validar preços corretamente<br>
+                            • <strong>+1 pt</strong> - Votar em sugestões da DAO<br>
+                            • <strong>+0.5 pts</strong> - Comentar na DAO (máx 5/dia)<br>
+                            • <strong>+15 pts</strong> - Sugestão aprovada (60% votos)<br>
+                            • <strong>+25 pts</strong> - Sugestão implementada<br>
+                            <span style="color: #ffcdd2;">• <strong>-3 pts</strong> - Validar contra consenso</span><br>
+                            <span style="color: #ffcdd2;">• <strong>-5 pts</strong> - Sugestão rejeitada</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Histórico de Transações -->
+                <div>
+                    <h3 style="font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        📜 Histórico de Transações
+                    </h3>
+                    <div id="carteiraHistorico" style="max-height: 400px; overflow-y: auto;">
+                        <!-- Será preenchido dinamicamente -->
+                    </div>
+                </div>
+
+                <!-- Como ganhar tokens -->
+                <div style="background: #f5f5f5; padding: 20px; border-radius: 10px; margin-top: 30px;">
+                    <h4 style="font-size: 16px; margin-bottom: 10px;">💡 Como ganhar tokens?</h4>
+                    <ul style="margin-left: 20px; line-height: 2;">
+                        <li><strong>+10 tokens</strong> - Adicionar preço de produto</li>
+                        <li><strong>+10 tokens</strong> - Escanear nota fiscal (por produto)</li>
+                        <li><strong>+5 tokens</strong> - Bônus de cadastro (apenas uma vez)</li>
+                    </ul>
+                    <h4 style="font-size: 16px; margin: 15px 0 10px 0;">💸 Como gastar tokens?</h4>
+                    <ul style="margin-left: 20px; line-height: 2;">
+                        <li><strong>-1 token</strong> - Buscar produtos</li>
+                        <li><strong>-5 tokens</strong> - Criar sugestão na DAO</li>
+                        <li><strong>-1 a -100 tokens</strong> - Votar em sugestões (votação quadrática)</li>
+                    </ul>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #2196F3;">
+                        <strong style="color: #1976D2;">🗳️ Votação Quadrática:</strong>
+                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #666; line-height: 1.6;">
+                            Quanto mais tokens você usar, mais votos terá, mas com custo crescente:<br>
+                            • 1 token = 1 voto<br>
+                            • 4 tokens = 2 votos<br>
+                            • 9 tokens = 3 votos<br>
+                            • 16 tokens = 4 votos<br>
+                            • 25 tokens = 5 votos
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAO View (Oculto por padrão) -->
+        <div id="daoView" style="display: none;">
+            <div style="background: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
+                <h2 style="font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    🏛️ DAO - Governança Comunitária
+                    <button onclick="voltarComparador()" style="margin-left: auto; background: #e0e0e0; color: #333; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer;">← Voltar</button>
+                </h2>
+
+                <!-- Ganhos de Reputação na DAO -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; font-size: 13px;">
+                    <strong style="font-size: 15px;">⭐ Ganhe Reputação Participando:</strong>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;">
+                        <span>💬 Comentários: <strong>+0.5</strong></span>
+                        <span>🗳️ Votos: <strong>+1</strong></span>
+                        <span>💡 Sugestão Aprovada: <strong>+15</strong></span>
+                        <span>🎉 Implementada: <strong>+25</strong></span>
+                    </div>
+                </div>
+
+                <!-- Tabs DAO -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd;">
+                    <button id="tabComentariosBtn" onclick="mostrarTabDAO('comentarios')" style="padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: var(--primary-color); border-bottom: 3px solid var(--primary-color);">
+                        💬 Comentários
+                    </button>
+                    <button id="tabSugestoesBtn" onclick="mostrarTabDAO('sugestoes')" style="padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; border-bottom: 3px solid transparent;">
+                        💡 Sugestões
+                    </button>
+                    <button id="tabEstatisticasDAOBtn" onclick="mostrarTabDAO('estatisticas')" style="padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; border-bottom: 3px solid transparent;">
+                        📊 Estatísticas
+                    </button>
+                </div>
+
+                <!-- Tab Comentários -->
+                <div id="daoTabComentarios">
+                    <div style="background: #f9f9f9; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 15px;">💬 Chat da Comunidade</h3>
+                        <textarea id="daoComentarioTexto" placeholder="Digite seu comentário..." style="width: 100%; min-height: 80px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; resize: vertical; margin-bottom: 10px;"></textarea>
+                        <button onclick="enviarComentarioDAO()" style="background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Enviar Comentário</button>
+                    </div>
+                    <div id="daoListaComentarios"></div>
+                </div>
+
+                <!-- Tab Sugestões -->
+                <div id="daoTabSugestoes" style="display: none;">
+                    <div style="background: #f9f9f9; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 10px;">💡 Criar Sugestão <span style="background: #ff9800; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; margin-left: 10px;">-5 tokens</span></h3>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                            Sugestões precisam ser aprovadas antes de entrar em votação. Votação quadrática: mais tokens = mais votos, mas com custo crescente.
+                        </p>
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px;">Título</label>
+                        <input type="text" id="daoSugestaoTitulo" placeholder="Ex: Adicionar modo escuro" maxlength="200" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px;">Descrição</label>
+                        <textarea id="daoSugestaoDescricao" placeholder="Descreva sua sugestão em detalhes..." maxlength="2000" style="width: 100%; min-height: 100px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; resize: vertical; margin-bottom: 10px;"></textarea>
+                        <button onclick="criarSugestaoDAO()" style="background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Criar Sugestão</button>
+                    </div>
+
+                    <div style="background: #f9f9f9; border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                        <strong>Filtrar:</strong>
+                        <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                            <button onclick="filtrarSugestoesDAO('')" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Todas</button>
+                            <button onclick="filtrarSugestoesDAO('pendente_aprovacao')" style="padding: 8px 16px; background: #fff3cd; color: #856404; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Pendentes</button>
+                            <button onclick="filtrarSugestoesDAO('em_votacao')" style="padding: 8px 16px; background: #cfe2ff; color: #084298; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Em Votação</button>
+                            <button onclick="filtrarSugestoesDAO('aprovada')" style="padding: 8px 16px; background: #d1e7dd; color: #0f5132; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Aprovadas</button>
+                        </div>
+                    </div>
+
+                    <div id="daoListaSugestoes"></div>
+                </div>
+
+                <!-- Tab Estatísticas DAO -->
+                <div id="daoTabEstatisticas" style="display: none;">
+                    <div id="daoEstatisticas"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Validações View (Oculto por padrão) -->
+        <div id="validacoesView" style="display: none;">
+            <div style="background: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
+                <h2 style="font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    ✓ Validar Contribuições
+                    <button onclick="voltarComparador()" style="margin-left: auto; background: #e0e0e0; color: #333; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer;">← Voltar</button>
+                </h2>
+
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196F3;">
+                    <strong style="color: #1976D2;">Como funciona:</strong>
+                    <p style="margin: 8px 0 0 0; font-size: 14px; color: #666; line-height: 1.6;">
+                        Valide os preços adicionados por outros usuários. Preços validados corretamente aumentam a reputação do contribuidor.
+                        Validações incorretas diminuem a reputação. Sua reputação também é afetada pela precisão das suas validações!
+                    </p>
+                </div>
+
+                <div id="validacoesLista" style="margin-top: 20px;">
+                    <!-- Será preenchido dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="install-prompt" id="installPrompt">
+        <p>📱 Instalar o app na tela inicial?</p>
+        <button onclick="instalarApp()">Instalar</button>
+        <button onclick="fecharInstall()">Agora não</button>
+    </div>
+        </div>
+    </div>
+
+    <script src="/src/app.js"></script>
+    <script>
+        // Não redeclarar API_URL - já existe no app.js
+        const API_URL_AUTH = 'http://localhost:8000/api';
+        let usuarioAtual = localStorage.getItem('usuario_nome') || null;
+
+        // Toggle Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const contentArea = document.getElementById('contentArea');
+            const toggleBtn = document.getElementById('sidebarToggle');
+
+            sidebar.classList.toggle('hidden');
+            contentArea.classList.toggle('expanded');
+            toggleBtn.classList.toggle('sidebar-hidden');
+        }
+
+        // Mostrar formulários
+        function mostrarLogin() {
+            console.log('Mostrando formulário de login');
+            document.getElementById('loginForm').style.display = 'flex';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('btnLogin').style.background = 'var(--primary-color)';
+            document.getElementById('btnLogin').style.color = 'white';
+            document.getElementById('btnLogin').style.border = 'none';
+            document.getElementById('btnRegistro').style.background = '#e0e0e0';
+            document.getElementById('btnRegistro').style.color = '#333';
+            document.getElementById('btnRegistro').style.border = '2px solid #ddd';
+        }
+
+        function mostrarRegistro() {
+            console.log('Mostrando formulário de registro');
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'flex';
+            document.getElementById('btnRegistro').style.background = 'var(--primary-color)';
+            document.getElementById('btnRegistro').style.color = 'white';
+            document.getElementById('btnRegistro').style.border = 'none';
+            document.getElementById('btnLogin').style.background = '#e0e0e0';
+            document.getElementById('btnLogin').style.color = '#333';
+            document.getElementById('btnLogin').style.border = '2px solid #ddd';
+        }
+
+        // Formatar CPF
+        function formatarCPF(input) {
+            let value = input.value.replace(/\D/g, '');
+            if (value.length <= 11) {
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            }
+            input.value = value;
+        }
+
+        // Login
+        async function fazerLogin() {
+            const cpf = document.getElementById('cpfLogin').value.replace(/\D/g, '');
+            const senha = document.getElementById('senhaLogin').value;
+
+            if (cpf.length !== 11) {
+                alert('Digite um CPF válido');
+                return;
+            }
+
+            if (!senha || senha.length < 4) {
+                alert('Digite sua senha');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cpf, senha })
+                });
+
+                const data = await response.json();
+
+                if (data.sucesso) {
+                    usuarioAtual = data.usuario_nome;
+                    localStorage.setItem('usuario_nome', data.usuario_nome);
+                    localStorage.setItem('cpf', cpf);
+                    mostrarUsuarioLogado();
+                    await atualizarCarteira();
+                } else {
+                    alert(data.mensagem);
+                }
+            } catch (error) {
+                console.error('Erro ao fazer login:', error);
+                alert('Erro ao conectar com o servidor');
+            }
+        }
+
+        // Registrar
+        async function fazerRegistro() {
+            const nome = document.getElementById('nomeRegistro').value.trim();
+            const cpf = document.getElementById('cpfRegistro').value.replace(/\D/g, '');
+            const senha = document.getElementById('senhaRegistro').value;
+
+            if (!nome || nome.length < 3) {
+                alert('Digite um nome válido (mínimo 3 caracteres)');
+                return;
+            }
+
+            if (cpf.length !== 11) {
+                alert('Digite um CPF válido');
+                return;
+            }
+
+            if (!senha || senha.length < 4) {
+                alert('Senha deve ter pelo menos 4 caracteres');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/auth/registrar?usuario_nome=${encodeURIComponent(nome)}&cpf=${cpf}&senha=${encodeURIComponent(senha)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+
+                if (data.sucesso) {
+                    alert('✅ Conta criada com sucesso! Você ganhou 5 tokens de bônus!');
+                    usuarioAtual = data.usuario_nome;
+                    localStorage.setItem('usuario_nome', data.usuario_nome);
+                    localStorage.setItem('cpf', cpf);
+                    mostrarUsuarioLogado();
+                    await atualizarCarteira();
+                } else {
+                    alert(data.mensagem);
+                }
+            } catch (error) {
+                console.error('Erro ao registrar:', error);
+                alert('Erro ao conectar com o servidor');
+            }
+        }
+
+        // Logout
+        function fazerLogout() {
+            usuarioAtual = null;
+            localStorage.removeItem('usuario_nome');
+            localStorage.removeItem('cpf');
+            mostrarFormularioLogin();
+            document.getElementById('walletCard').style.display = 'none';
+        }
+
+        // Mostrar usuário logado
+        function mostrarUsuarioLogado() {
+            document.getElementById('authForm').style.display = 'none';
+            document.getElementById('userInfo').style.display = 'flex';
+            document.getElementById('userName').textContent = usuarioAtual;
+            document.getElementById('userAvatar').textContent = usuarioAtual[0].toUpperCase();
+            document.getElementById('walletCard').style.display = 'block';
+        }
+
+        // Mostrar formulário de login
+        function mostrarFormularioLogin() {
+            document.getElementById('authForm').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'none';
+            mostrarLogin();
+        }
+
+        // Atualizar carteira
+        async function atualizarCarteira() {
+            if (!usuarioAtual) return;
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/carteira/${usuarioAtual}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('walletBalance').textContent = Math.floor(data.saldo);
+                    document.getElementById('tokensGanhos').textContent = Math.floor(data.total_minerado);
+                    document.getElementById('tokensGastos').textContent = Math.floor(data.total_gasto);
+                }
+            } catch (error) {
+                console.error('Erro ao atualizar carteira:', error);
+            }
+        }
+
+        // Mostrar carteira (nova view)
+        async function mostrarCarteira() {
+            if (!usuarioAtual) {
+                alert('Faça login para acessar sua carteira');
+                return;
+            }
+
+            // Esconder header e comparador, mostrar carteira
+            document.getElementById('headerComparador').style.display = 'none';
+            document.getElementById('comparadorView').style.display = 'none';
+            document.getElementById('carteiraView').style.display = 'block';
+
+            // Carregar dados da carteira
+            await carregarDadosCarteira();
+        }
+
+        // Voltar para o comparador
+        function voltarComparador() {
+            document.getElementById('headerComparador').style.display = 'block';
+            document.getElementById('carteiraView').style.display = 'none';
+            document.getElementById('daoView').style.display = 'none';
+            document.getElementById('validacoesView').style.display = 'none';
+            document.getElementById('comparadorView').style.display = 'block';
+        }
+
+        // Carregar dados da carteira
+        async function carregarDadosCarteira() {
+            if (!usuarioAtual) return;
+
+            try {
+                // Buscar saldo e estatísticas
+                const responseCarteira = await fetch(`${API_URL_AUTH}/carteira/${usuarioAtual}`);
+                if (responseCarteira.ok) {
+                    const data = await responseCarteira.json();
+
+                    // Atualizar saldo e estatísticas
+                    document.getElementById('carteiraViewSaldo').textContent = Math.floor(data.saldo);
+                    document.getElementById('carteiraViewGanhos').textContent = Math.floor(data.total_minerado);
+                    document.getElementById('carteiraViewGastos').textContent = Math.floor(data.total_gasto);
+                    document.getElementById('carteiraViewTransacoes').textContent = data.total_transacoes;
+
+                    // Atualizar reputação
+                    document.getElementById('carteiraReputacao').textContent = data.reputacao || 100;
+                    document.getElementById('carteiraValidacoesFeitas').textContent = data.total_validacoes_feitas || 0;
+                    document.getElementById('carteiraValidacoesRecebidas').textContent = data.total_validacoes_recebidas || 0;
+                    document.getElementById('carteiraValidacoesPositivas').textContent = data.validacoes_positivas || 0;
+                    document.getElementById('carteiraValidacoesNegativas').textContent = data.validacoes_negativas || 0;
+
+                    // Calcular nível de confiança
+                    const reputacao = data.reputacao || 100;
+                    let nivelConfianca = 'Confiável';
+                    if (reputacao >= 150) nivelConfianca = '🌟 Muito Alto';
+                    else if (reputacao >= 100) nivelConfianca = '✨ Alto';
+                    else if (reputacao >= 50) nivelConfianca = '⚠️ Médio';
+                    else nivelConfianca = '❌ Baixo';
+                    document.getElementById('carteiraNivelConfianca').textContent = nivelConfianca;
+                }
+
+                // Buscar histórico
+                const responseHistorico = await fetch(`${API_URL_AUTH}/carteira/${usuarioAtual}/historico`);
+                if (responseHistorico.ok) {
+                    const transacoes = await responseHistorico.json();
+
+                    const historicoDiv = document.getElementById('carteiraHistorico');
+
+                    if (transacoes.length === 0) {
+                        historicoDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Nenhuma transação ainda</p>';
+                    } else {
+                        let html = '';
+                        transacoes.forEach(t => {
+                            const data = new Date(t.data_transacao).toLocaleString('pt-BR');
+                            const valor = t.quantidade > 0 ? `+${t.quantidade}` : t.quantidade;
+                            const cor = t.quantidade > 0 ? '#4CAF50' : '#f44336';
+                            const bgCor = t.quantidade > 0 ? '#e8f5e9' : '#ffebee';
+
+                            html += `
+                                <div style="background: ${bgCor}; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid ${cor};">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <strong style="color: ${cor}; font-size: 18px;">${valor} tokens</strong>
+                                            <div style="color: #666; font-size: 14px; margin-top: 5px;">${t.descricao || t.tipo}</div>
+                                        </div>
+                                        <div style="text-align: right; font-size: 12px; color: #999;">
+                                            ${data}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        historicoDiv.innerHTML = html;
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados da carteira:', error);
+                alert('Erro ao carregar dados da carteira');
+            }
+        }
+
+        // Configurar tudo quando a página carregar
+        window.addEventListener('load', () => {
+            console.log('=== Página carregada - Iniciando configuração ===');
+
+            // Configurar formatação CPF
+            const cpfInputs = document.querySelectorAll('#cpfLogin, #cpfRegistro');
+            cpfInputs.forEach(input => {
+                input.addEventListener('input', () => formatarCPF(input));
+            });
+            console.log('Formatação CPF configurada');
+
+            // Configurar botão Login
+            const btnLogin = document.getElementById('btnLogin');
+            if (btnLogin) {
+                btnLogin.onclick = function() {
+                    console.log('>>> Clicou em Login');
+                    mostrarLogin();
+                };
+                console.log('✅ Botão Login configurado');
+            }
+
+            // Configurar botão Registrar
+            const btnRegistro = document.getElementById('btnRegistro');
+            if (btnRegistro) {
+                btnRegistro.onclick = function() {
+                    console.log('>>> Clicou em Registrar');
+                    mostrarRegistro();
+                };
+                console.log('✅ Botão Registrar configurado');
+            }
+
+            // Configurar botão Entrar
+            const btnEntrar = document.getElementById('btnEntrar');
+            if (btnEntrar) {
+                btnEntrar.onclick = function() {
+                    console.log('>>> Clicou em Entrar');
+                    fazerLogin();
+                };
+                console.log('✅ Botão Entrar configurado');
+            }
+
+            // Configurar botão Criar Conta
+            const btnCriarConta = document.getElementById('btnCriarConta');
+            if (btnCriarConta) {
+                btnCriarConta.onclick = function() {
+                    console.log('>>> Clicou em Criar Conta');
+                    fazerRegistro();
+                };
+                console.log('✅ Botão Criar Conta configurado');
+            }
+
+            // Verificar sessão
+            const cpfSalvo = localStorage.getItem('cpf');
+            if (usuarioAtual && !cpfSalvo) {
+                console.log('Usuário antigo sem CPF - fazendo logout');
+                fazerLogout();
+                return;
+            }
+
+            if (usuarioAtual) {
+                console.log('Usuário logado:', usuarioAtual);
+                mostrarUsuarioLogado();
+                atualizarCarteira();
+            } else {
+                console.log('Nenhum usuário logado - mostrando formulário de login');
+                mostrarFormularioLogin();
+            }
+
+            console.log('=== Configuração concluída ===');
+        });
+
+        // Atualizar carteira a cada 30 segundos
+        setInterval(() => {
+            if (usuarioAtual) {
+                atualizarCarteira();
+            }
+        }, 30000);
+
+        // ============================================
+        // CONFIGURAÇÃO DE TRANSPORTE
+        // ============================================
+
+        window.abrirConfigTransporte = function() {
+            const modal = document.getElementById('modalTransporte');
+            if (!modal) {
+                window.criarModalTransporte();
+            }
+            document.getElementById('modalTransporte').style.display = 'flex';
+
+            // Carregar configuração salva
+            const config = JSON.parse(localStorage.getItem('configTransporte') || '{"tipo":"carro","considerar_tempo":true}');
+            document.querySelector('input[name="tipoTransporte"][value="' + config.tipo + '"]').checked = true;
+            document.getElementById('considerarTempo').checked = config.considerar_tempo;
+
+            window.atualizarInfoTransporte(config.tipo);
+        }
+
+        window.criarModalTransporte = function() {
+            const modal = document.createElement('div');
+            modal.id = 'modalTransporte';
+            modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; align-items: center; justify-content: center; padding: 20px;';
+
+            modal.innerHTML = '<div style="background: white; border-radius: 12px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">' +
+                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">' +
+                    '<h2 style="margin: 0; color: #333;">🚗 Combustível/Transporte</h2>' +
+                    '<button onclick="window.fecharModalTransporte()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #999;">&times;</button>' +
+                '</div>' +
+                '<p style="color: #666; margin-bottom: 25px; font-size: 14px;">' +
+                    'Configure seu tipo de transporte para cálculos mais precisos de economia considerando o custo de deslocamento.' +
+                '</p>' +
+                '<div style="margin-bottom: 25px;">' +
+                    '<label style="display: block; margin-bottom: 15px; font-weight: 600; color: #333;">Tipo de Transporte:</label>' +
+                    '<label style="display: flex; align-items: center; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: all 0.3s;" class="transport-option" data-tipo="carro">' +
+                        '<input type="radio" name="tipoTransporte" value="carro" style="margin-right: 12px;" onchange="window.atualizarInfoTransporte(\'carro\')">' +
+                        '<div style="flex: 1;">' +
+                            '<div style="font-weight: 600;">🚗 Carro</div>' +
+                            '<small style="color: #666;">R$ 0,80/km (combustível + desgaste)</small>' +
+                        '</div>' +
+                    '</label>' +
+                    '<label style="display: flex; align-items: center; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: all 0.3s;" class="transport-option" data-tipo="moto">' +
+                        '<input type="radio" name="tipoTransporte" value="moto" style="margin-right: 12px;" onchange="window.atualizarInfoTransporte(\'moto\')">' +
+                        '<div style="flex: 1;">' +
+                            '<div style="font-weight: 600;">🏍️ Moto</div>' +
+                            '<small style="color: #666;">R$ 0,35/km (mais econômico)</small>' +
+                        '</div>' +
+                    '</label>' +
+                    '<label style="display: flex; align-items: center; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: all 0.3s;" class="transport-option" data-tipo="onibus">' +
+                        '<input type="radio" name="tipoTransporte" value="onibus" style="margin-right: 12px;" onchange="window.atualizarInfoTransporte(\'onibus\')">' +
+                        '<div style="flex: 1;">' +
+                            '<div style="font-weight: 600;">🚌 Ônibus</div>' +
+                            '<small style="color: #666;">R$ 0,25/km (transporte público)</small>' +
+                        '</div>' +
+                    '</label>' +
+                    '<label style="display: flex; align-items: center; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.3s;" class="transport-option" data-tipo="ape">' +
+                        '<input type="radio" name="tipoTransporte" value="ape" style="margin-right: 12px;" onchange="window.atualizarInfoTransporte(\'ape\')">' +
+                        '<div style="flex: 1;">' +
+                            '<div style="font-weight: 600;">🚶 A pé</div>' +
+                            '<small style="color: #666;">R$ 0,00/km (grátis!)</small>' +
+                        '</div>' +
+                    '</label>' +
+                '</div>' +
+                '<div style="margin-bottom: 25px;">' +
+                    '<label style="display: flex; align-items: center; cursor: pointer;">' +
+                        '<input type="checkbox" id="considerarTempo" style="margin-right: 10px;">' +
+                        '<span style="font-size: 14px; color: #333;">Considerar valor do tempo (R$ 15/hora)</span>' +
+                    '</label>' +
+                    '<small style="color: #666; margin-left: 24px; display: block; margin-top: 5px;">' +
+                        'Inclui o custo do seu tempo no deslocamento' +
+                    '</small>' +
+                '</div>' +
+                '<div id="infoTransporte" style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;"></div>' +
+                '<div style="display: flex; gap: 10px;">' +
+                    '<button onclick="window.salvarConfigTransporte()" style="flex: 1; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">' +
+                        'Salvar Configuração' +
+                    '</button>' +
+                    '<button onclick="window.fecharModalTransporte()" style="flex: 1; background: #f5f5f5; color: #333; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">' +
+                        'Cancelar' +
+                    '</button>' +
+                '</div>' +
+            '</div>';
+
+            document.body.appendChild(modal);
+
+            // Estilo para opção selecionada
+            const style = document.createElement('style');
+            style.textContent = '.transport-option:has(input:checked) { border-color: #4CAF50 !important; background: #f1f8f4 !important; } .transport-option:hover { border-color: #4CAF50 !important; }';
+            document.head.appendChild(style);
+        }
+
+        window.atualizarInfoTransporte = function(tipo) {
+            const info = {
+                carro: {
+                    emoji: '🚗',
+                    nome: 'Carro',
+                    custo: '0,80',
+                    exemplo: 'Loja a 10km = R$ 16,00 (ida e volta)'
+                },
+                moto: {
+                    emoji: '🏍️',
+                    nome: 'Moto',
+                    custo: '0,35',
+                    exemplo: 'Loja a 10km = R$ 7,00 (ida e volta)'
+                },
+                onibus: {
+                    emoji: '🚌',
+                    nome: 'Ônibus',
+                    custo: '0,25',
+                    exemplo: 'Loja a 10km = R$ 5,00 (ida e volta)'
+                },
+                ape: {
+                    emoji: '🚶',
+                    nome: 'A pé',
+                    custo: '0,00',
+                    exemplo: 'Loja a 10km = R$ 0,00 (mas leva ~3h30min!)'
+                }
+            };
+
+            const dados = info[tipo];
+            const infoDiv = document.getElementById('infoTransporte');
+
+            infoDiv.innerHTML = '<div style="text-align: center;">' +
+                '<div style="font-size: 48px; margin-bottom: 10px;">' + dados.emoji + '</div>' +
+                '<div style="font-weight: 600; font-size: 18px; margin-bottom: 5px;">' + dados.nome + '</div>' +
+                '<div style="color: #666; margin-bottom: 10px;">Custo: R$ ' + dados.custo + ' por km</div>' +
+                '<div style="font-size: 13px; color: #4CAF50; background: white; padding: 10px; border-radius: 6px;">' +
+                '📍 Exemplo: ' + dados.exemplo +
+                '</div></div>';
+        }
+
+        window.salvarConfigTransporte = function() {
+            const tipo = document.querySelector('input[name="tipoTransporte"]:checked').value;
+            const considerarTempo = document.getElementById('considerarTempo').checked;
+
+            const config = {
+                tipo: tipo,
+                considerar_tempo: considerarTempo
+            };
+
+            localStorage.setItem('configTransporte', JSON.stringify(config));
+
+            // Mostrar mensagem de sucesso
+            const infoDiv = document.getElementById('infoTransporte');
+            infoDiv.innerHTML = '<div style="text-align: center; color: #4CAF50; font-weight: 600;">✅ Configuração salva com sucesso!</div>';
+
+            setTimeout(() => {
+                fecharModalTransporte();
+            }, 1500);
+        }
+
+        window.fecharModalTransporte = function() {
+            document.getElementById('modalTransporte').style.display = 'none';
+        }
+
+        // ============================================
+        // FUNÇÕES DO DAO
+        // ============================================
+
+        // Mostrar/Esconder views
+        function mostrarDAO() {
+            if (!usuarioAtual) {
+                alert('Faça login para acessar a DAO');
+                return;
+            }
+
+            document.getElementById('headerComparador').style.display = 'none';
+            document.getElementById('comparadorView').style.display = 'none';
+            document.getElementById('carteiraView').style.display = 'none';
+            document.getElementById('daoView').style.display = 'block';
+
+            // Carregar dados iniciais
+            carregarComentariosDAO();
+        }
+
+        // Tabs DAO
+        function mostrarTabDAO(tab) {
+            // Atualizar botões
+            document.getElementById('tabComentariosBtn').style.color = '#666';
+            document.getElementById('tabComentariosBtn').style.borderBottom = '3px solid transparent';
+            document.getElementById('tabSugestoesBtn').style.color = '#666';
+            document.getElementById('tabSugestoesBtn').style.borderBottom = '3px solid transparent';
+            document.getElementById('tabEstatisticasDAOBtn').style.color = '#666';
+            document.getElementById('tabEstatisticasDAOBtn').style.borderBottom = '3px solid transparent';
+
+            // Esconder todas as tabs
+            document.getElementById('daoTabComentarios').style.display = 'none';
+            document.getElementById('daoTabSugestoes').style.display = 'none';
+            document.getElementById('daoTabEstatisticas').style.display = 'none';
+
+            // Mostrar tab selecionada
+            if (tab === 'comentarios') {
+                document.getElementById('tabComentariosBtn').style.color = 'var(--primary-color)';
+                document.getElementById('tabComentariosBtn').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('daoTabComentarios').style.display = 'block';
+                carregarComentariosDAO();
+            } else if (tab === 'sugestoes') {
+                document.getElementById('tabSugestoesBtn').style.color = 'var(--primary-color)';
+                document.getElementById('tabSugestoesBtn').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('daoTabSugestoes').style.display = 'block';
+                carregarSugestoesDAO();
+            } else if (tab === 'estatisticas') {
+                document.getElementById('tabEstatisticasDAOBtn').style.color = 'var(--primary-color)';
+                document.getElementById('tabEstatisticasDAOBtn').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('daoTabEstatisticas').style.display = 'block';
+                carregarEstatisticasDAO();
+            }
+        }
+
+        // Comentários
+        async function carregarComentariosDAO() {
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/comentarios?limite=50`);
+                const comentarios = await response.json();
+
+                const lista = document.getElementById('daoListaComentarios');
+
+                if (comentarios.length === 0) {
+                    lista.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Nenhum comentário ainda. Seja o primeiro!</div>';
+                    return;
+                }
+
+                lista.innerHTML = comentarios.map(c => `
+                    <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--primary-color);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+                            <span style="font-weight: 600; color: var(--primary-color);">${c.usuario_nome}</span>
+                            <span style="color: #999; font-size: 12px;">${formatarDataDAO(c.data_criacao)}</span>
+                        </div>
+                        <p>${c.conteudo}</p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Erro ao carregar comentários:', error);
+            }
+        }
+
+        async function enviarComentarioDAO() {
+            const texto = document.getElementById('daoComentarioTexto').value.trim();
+
+            if (!texto) {
+                alert('Digite um comentário');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/comentarios`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario_nome: usuarioAtual,
+                        conteudo: texto
+                    })
+                });
+
+                if (response.ok) {
+                    document.getElementById('daoComentarioTexto').value = '';
+                    alert('✅ Comentário enviado! (+0.5 reputação)');
+                    carregarComentariosDAO();
+                } else {
+                    alert('Erro ao enviar comentário');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        // Sugestões
+        async function carregarSugestoesDAO(status = '') {
+            try {
+                const url = status ? `${API_URL_AUTH}/dao/sugestoes?status=${status}` : `${API_URL_AUTH}/dao/sugestoes`;
+                const response = await fetch(url);
+                const sugestoes = await response.json();
+
+                const lista = document.getElementById('daoListaSugestoes');
+
+                if (sugestoes.length === 0) {
+                    lista.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Nenhuma sugestão encontrada</div>';
+                    return;
+                }
+
+                lista.innerHTML = sugestoes.map(s => {
+                    const totalVotos = s.total_votos_favor + s.total_votos_contra;
+                    const porcentagem = s.porcentagem_aprovacao.toFixed(1);
+
+                    return `
+                        <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                                <div>
+                                    <span style="font-weight: 600; color: var(--primary-color);">${s.usuario_nome}</span>
+                                    <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-left: 10px; ${getStatusStyle(s.status)}">${traduzirStatusDAO(s.status)}</span>
+                                </div>
+                                <span style="color: #999; font-size: 12px;">${formatarDataDAO(s.data_criacao)}</span>
+                            </div>
+
+                            <h3 style="margin-bottom: 10px;">${s.titulo}</h3>
+                            <p style="color: #666;">${s.descricao}</p>
+
+                            ${s.status === 'pendente_aprovacao' && usuarioAtual === 'Vengel' ? `
+                                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                                    <button onclick="aprovarSugestaoDAO(${s.id})" style="background: var(--success-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">✅ Aprovar</button>
+                                    <button onclick="rejeitarSugestaoDAO(${s.id})" style="background: var(--danger-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">❌ Rejeitar</button>
+                                </div>
+                            ` : ''}
+
+                            ${s.status === 'em_votacao' ? `
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
+                                        <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; text-align: center;">
+                                            <div style="font-size: 24px; font-weight: bold; color: var(--success-color);">${s.total_votos_favor}</div>
+                                            <div style="font-size: 12px; color: #666;">A Favor</div>
+                                        </div>
+                                        <div style="background: #ffebee; padding: 12px; border-radius: 8px; text-align: center;">
+                                            <div style="font-size: 24px; font-weight: bold; color: var(--danger-color);">${s.total_votos_contra}</div>
+                                            <div style="font-size: 12px; color: #666;">Contra</div>
+                                        </div>
+                                        <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; text-align: center;">
+                                            <div style="font-size: 24px; font-weight: bold; color: var(--secondary-color);">${porcentagem}%</div>
+                                            <div style="font-size: 12px; color: #666;">Aprovação</div>
+                                        </div>
+                                    </div>
+
+                                    <div style="height: 30px; background: #e0e0e0; border-radius: 15px; overflow: hidden; margin-bottom: 10px;">
+                                        <div style="height: 100%; background: linear-gradient(90deg, var(--primary-color), #45a049); width: ${porcentagem}%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; transition: width 0.3s;">
+                                            ${porcentagem}%
+                                        </div>
+                                    </div>
+
+                                    <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                                        ${totalVotos} votos totais | ${s.total_tokens_votados} tokens usados
+                                    </p>
+
+                                    <button onclick="abrirModalVotoDAO(${s.id}, '${s.titulo.replace(/'/g, "\\'")}', '${s.descricao.replace(/'/g, "\\'")}
+
+')" style="background: var(--secondary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%;">
+                                        🗳️ Votar Nesta Sugestão
+                                    </button>
+                                </div>
+                            ` : ''}
+
+                            ${s.status === 'aprovada' ? `
+                                <div style="margin-top: 15px; padding: 15px; background: #d1e7dd; border-radius: 8px;">
+                                    <strong>🎉 Sugestão aprovada com ${porcentagem}% dos votos!</strong>
+                                    <p style="margin-top: 5px; font-size: 14px;">Será implementada em breve.</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Erro ao carregar sugestões:', error);
+            }
+        }
+
+        function filtrarSugestoesDAO(status) {
+            carregarSugestoesDAO(status);
+        }
+
+        async function criarSugestaoDAO() {
+            const titulo = document.getElementById('daoSugestaoTitulo').value.trim();
+            const descricao = document.getElementById('daoSugestaoDescricao').value.trim();
+
+            if (!titulo || !descricao) {
+                alert('Preencha título e descrição');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/sugestoes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario_nome: usuarioAtual,
+                        titulo,
+                        descricao
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('daoSugestaoTitulo').value = '';
+                    document.getElementById('daoSugestaoDescricao').value = '';
+                    alert('✅ Sugestão criada! Você gastou 5 tokens.\n\nAguardando aprovação.');
+                    carregarSugestoesDAO();
+                    atualizarCarteira(); // Atualizar saldo
+                } else if (response.status === 402) {
+                    // Saldo insuficiente
+                    alert(`❌ ${data.detail.mensagem}\n\n💡 ${data.detail.dica}`);
+                } else {
+                    alert('Erro ao criar sugestão');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao criar sugestão');
+            }
+        }
+
+        async function aprovarSugestaoDAO(id) {
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/sugestoes/${id}/aprovar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: id,
+                        usuario_nome: usuarioAtual
+                    })
+                });
+
+                const data = await response.json();
+                alert(data.mensagem);
+                carregarSugestoesDAO();
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        async function rejeitarSugestaoDAO(id) {
+            const motivo = prompt('Por que está rejeitando esta sugestão?');
+            if (!motivo) return;
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/sugestoes/${id}/rejeitar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: id,
+                        usuario_admin: usuarioAtual,
+                        motivo
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Sugestão rejeitada');
+                    carregarSugestoesDAO();
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        // Modal de votação
+        let sugestaoAtualDAO = null;
+
+        function abrirModalVotoDAO(id, titulo, descricao) {
+            sugestaoAtualDAO = id;
+            const modal = prompt(`Votação: ${titulo}\n\nQuantos tokens deseja usar? (1-100)\nFórmula: votos = √(tokens)\n\n1=1 voto, 4=2 votos, 9=3 votos, 16=4 votos\n\nDigite os tokens e depois escolha Favor/Contra:`);
+
+            if (!modal) return;
+
+            const tokens = parseInt(modal);
+            if (isNaN(tokens) || tokens < 1 || tokens > 100) {
+                alert('Valor inválido! Use entre 1 e 100 tokens.');
+                return;
+            }
+
+            const favor = confirm(`Usar ${tokens} tokens para votar A FAVOR?\n\nVotos gerados: ${Math.floor(Math.sqrt(tokens))}\n\nOK = A Favor | Cancelar = Contra`);
+            votarDAO(tokens, favor);
+        }
+
+        async function votarDAO(tokens, favor) {
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/votar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: sugestaoAtualDAO,
+                        usuario_nome: usuarioAtual,
+                        tokens_usados: tokens,
+                        voto_favor: favor
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ ${data.mensagem}\nSaldo restante: ${data.saldo_restante} tokens`);
+                    carregarSugestoesDAO();
+                    atualizarCarteira(); // Atualizar saldo
+                } else {
+                    alert(`❌ ${data.detail || 'Erro ao votar'}`);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao votar');
+            }
+        }
+
+        // Estatísticas
+        async function carregarEstatisticasDAO() {
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/estatisticas`);
+                const stats = await response.json();
+
+                document.getElementById('daoEstatisticas').innerHTML = `
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <h3 style="margin-bottom: 20px;">📊 Estatísticas da DAO</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                            <div style="background: #e8f5e9; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: var(--success-color);">${stats.total_comentarios}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Comentários</div>
+                            </div>
+                            <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: var(--secondary-color);">${stats.total_sugestoes}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Sugestões</div>
+                            </div>
+                            <div style="background: #fff3cd; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: #856404;">${stats.sugestoes_pendentes}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Pendentes</div>
+                            </div>
+                            <div style="background: #cfe2ff; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: #084298;">${stats.sugestoes_em_votacao}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Em Votação</div>
+                            </div>
+                            <div style="background: #d1e7dd; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: #0f5132;">${stats.sugestoes_aprovadas}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Aprovadas</div>
+                            </div>
+                            <div style="background: #f1f8f4; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: var(--primary-color);">${stats.total_tokens_votados}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Tokens Votados</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+            }
+        }
+
+        // Utilidades DAO
+        function formatarDataDAO(dataString) {
+            const data = new Date(dataString);
+            const agora = new Date();
+            const diffMs = agora - data;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHoras = Math.floor(diffMs / 3600000);
+            const diffDias = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Agora';
+            if (diffMins < 60) return `${diffMins} min atrás`;
+            if (diffHoras < 24) return `${diffHoras}h atrás`;
+            if (diffDias === 1) return 'Ontem';
+            if (diffDias < 7) return `${diffDias} dias atrás`;
+            return data.toLocaleDateString('pt-BR');
+        }
+
+        function traduzirStatusDAO(status) {
+            const traducoes = {
+                'pendente_aprovacao': '⏳ Pendente',
+                'em_votacao': '🗳️ Em Votação',
+                'aprovada': '✅ Aprovada',
+                'rejeitada': '❌ Rejeitada',
+                'implementada': '🎉 Implementada',
+                'cancelada': '🚫 Cancelada'
+            };
+            return traducoes[status] || status;
+        }
+
+        function getStatusStyle(status) {
+            const styles = {
+                'pendente_aprovacao': 'background: #fff3cd; color: #856404;',
+                'em_votacao': 'background: #cfe2ff; color: #084298;',
+                'aprovada': 'background: #d1e7dd; color: #0f5132;',
+                'rejeitada': 'background: #f8d7da; color: #842029;',
+                'implementada': 'background: #d1e7dd; color: #0f5132;',
+                'cancelada': 'background: #e0e0e0; color: #666;'
+            };
+            return styles[status] || '';
+        }
+
+        // ============================================
+        // FUNÇÕES DE VALIDAÇÃO DE CONTRIBUIÇÕES
+        // ============================================
+
+        async function mostrarValidacoes() {
+            if (!usuarioAtual) {
+                alert('Faça login para validar contribuições');
+                return;
+            }
+
+            document.getElementById('headerComparador').style.display = 'none';
+            document.getElementById('comparadorView').style.display = 'none';
+            document.getElementById('carteiraView').style.display = 'none';
+            document.getElementById('daoView').style.display = 'none';
+            document.getElementById('validacoesView').style.display = 'block';
+
+            await carregarContribuicoesPendentes();
+        }
+
+        async function carregarContribuicoesPendentes() {
+            if (!usuarioAtual) return;
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/reputacao/contribuicoes-pendentes?validador_nome=${usuarioAtual}&limite=20`);
+                const contribuicoes = await response.json();
+
+                const lista = document.getElementById('validacoesLista');
+
+                if (contribuicoes.length === 0) {
+                    lista.innerHTML = '<div style="text-align: center; padding: 60px; color: #999;"><div style="font-size: 48px; margin-bottom: 15px;">✓</div><div style="font-size: 18px;">Nenhuma contribuição pendente de validação!</div><div style="font-size: 14px; margin-top: 10px;">Volte mais tarde para validar novas contribuições.</div></div>';
+                    return;
+                }
+
+                lista.innerHTML = contribuicoes.map(c => {
+                    const reputacaoCor = c.usuario_reputacao >= 150 ? '#4CAF50' : c.usuario_reputacao >= 100 ? '#8BC34A' : c.usuario_reputacao >= 50 ? '#FF9800' : '#f44336';
+                    const nivelConfianca = c.usuario_reputacao >= 150 ? '🌟 Muito Alto' : c.usuario_reputacao >= 100 ? '✨ Alto' : c.usuario_reputacao >= 50 ? '⚠️ Médio' : '❌ Baixo';
+
+                    return `
+                        <div style="background: white; border: 2px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 18px; font-weight: 600; color: #333; margin-bottom: 5px;">
+                                        ${c.produto_nome}${c.produto_marca ? ` - ${c.produto_marca}` : ''}
+                                    </div>
+                                    <div style="color: #666; font-size: 14px; margin-bottom: 8px;">
+                                        📍 ${c.supermercado}${c.localizacao ? ` (${c.localizacao})` : ''}
+                                    </div>
+                                    <div style="color: #999; font-size: 13px;">
+                                        📅 ${formatarDataDAO(c.data_coleta)}
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 28px; font-weight: bold; color: var(--primary-color);">
+                                        R$ ${c.preco.toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <span style="font-weight: 600; color: #333;">Contribuidor:</span> ${c.usuario_nome}
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="background: ${reputacaoCor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">
+                                            ${c.usuario_reputacao} pts
+                                        </span>
+                                        <span style="font-size: 12px; color: #666;">${nivelConfianca}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                                <div style="display: flex; gap: 20px; justify-content: center; font-size: 13px; color: #666;">
+                                    <div><strong>${c.total_validacoes}</strong> validações</div>
+                                    <div style="color: #4CAF50;"><strong>${c.aprovacoes}</strong> ✓ aprovações</div>
+                                    <div style="color: #f44336;"><strong>${c.rejeicoes}</strong> ✗ rejeições</div>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <button onclick="validarContribuicao(${c.preco_id}, '${c.usuario_nome}', true)"
+                                    style="flex: 1; background: #4CAF50; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 15px;">
+                                    ✓ Preço Correto
+                                </button>
+                                <button onclick="mostrarFormRejeicao(${c.preco_id}, '${c.usuario_nome}', ${c.preco})"
+                                    style="flex: 1; background: #f44336; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 15px;">
+                                    ✗ Preço Incorreto
+                                </button>
+                            </div>
+                            <div id="formRejeicao_${c.preco_id}" style="display: none; margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ff9800;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #856404;">
+                                    Por que este preço está incorreto?
+                                </label>
+                                <textarea id="motivo_${c.preco_id}" placeholder="Descreva o motivo..."
+                                    style="width: 100%; min-height: 60px; padding: 10px; border: 2px solid #ddd; border-radius: 6px; margin-bottom: 10px; resize: vertical;"></textarea>
+                                <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #856404;">
+                                    Qual seria o preço correto? (opcional)
+                                </label>
+                                <input type="number" id="precoCorreto_${c.preco_id}" placeholder="Ex: 19.90" step="0.01" min="0"
+                                    style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; margin-bottom: 10px;">
+                                <div style="display: flex; gap: 10px;">
+                                    <button onclick="validarContribuicao(${c.preco_id}, '${c.usuario_nome}', false)"
+                                        style="flex: 1; background: #f44336; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                                        Confirmar Rejeição
+                                    </button>
+                                    <button onclick="document.getElementById('formRejeicao_${c.preco_id}').style.display='none'"
+                                        style="flex: 1; background: #999; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer;">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Erro ao carregar contribuições:', error);
+                alert('Erro ao carregar contribuições pendentes');
+            }
+        }
+
+        function mostrarFormRejeicao(precoId, usuarioNome, preco) {
+            document.getElementById(`formRejeicao_${precoId}`).style.display = 'block';
+        }
+
+        async function validarContribuicao(precoId, validadoNome, aprovado) {
+            if (!usuarioAtual) {
+                alert('Faça login para validar');
+                return;
+            }
+
+            let motivo = null;
+            let precoSugerido = null;
+
+            if (!aprovado) {
+                motivo = document.getElementById(`motivo_${precoId}`).value.trim();
+                const precoInput = document.getElementById(`precoCorreto_${precoId}`).value;
+
+                if (!motivo) {
+                    alert('Por favor, descreva o motivo da rejeição');
+                    return;
+                }
+
+                if (precoInput && parseFloat(precoInput) > 0) {
+                    precoSugerido = parseFloat(precoInput);
+                }
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/reputacao/validar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        preco_id: precoId,
+                        validador_nome: usuarioAtual,
+                        aprovado: aprovado,
+                        motivo: motivo,
+                        preco_sugerido: precoSugerido
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✓ ${data.mensagem}\n\nReputação atualizada: ${data.nova_reputacao_validado} pts`);
+                    // Recarregar lista
+                    await carregarContribuicoesPendentes();
+                } else {
+                    alert(`Erro: ${data.detail}`);
+                }
+            } catch (error) {
+                console.error('Erro ao validar:', error);
+                alert('Erro ao processar validação');
+            }
+        }
+
+    </script>
+</body>
+</html>
