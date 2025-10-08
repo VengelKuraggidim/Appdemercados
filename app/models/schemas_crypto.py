@@ -57,7 +57,7 @@ class SaldoResponse(BaseModel):
     total_gasto: float
     ultima_atualizacao: datetime
     # Reputação
-    reputacao: int = 100
+    reputacao: float = 100
     total_validacoes_feitas: int = 0
     total_validacoes_recebidas: int = 0
     validacoes_positivas: int = 0

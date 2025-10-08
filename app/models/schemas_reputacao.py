@@ -34,7 +34,7 @@ class ValidacaoResponse(BaseModel):
 class ReputacaoResponse(BaseModel):
     """Schema para resposta de reputação do usuário"""
     usuario_nome: str
-    reputacao: int
+    reputacao: float
     total_validacoes_feitas: int
     total_validacoes_recebidas: int
     validacoes_positivas: int
@@ -51,7 +51,7 @@ class ContribuicaoParaValidar(BaseModel):
     preco: float
     supermercado: str
     usuario_nome: str
-    usuario_reputacao: int
+    usuario_reputacao: float
     localizacao: Optional[str]
     data_coleta: datetime
     total_validacoes: int  # Quantas validações já recebeu

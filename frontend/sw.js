@@ -1,5 +1,5 @@
 // Service Worker for PWA com Network-First Strategy
-const CACHE_VERSION = '__BUILD_TIME__'; // Substituído automaticamente no build
+const CACHE_VERSION = 'v2.0.01-' + Date.now(); // Versão única baseada em timestamp
 const CACHE_NAME = `comparador-precos-${CACHE_VERSION}`;
 
 // Recursos estáticos que podem usar cache agressivo
@@ -95,9 +95,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // IMPORTANTE: Nunca cacheia páginas HTML e JS (sempre busca da rede)
+  if (url.pathname.includes('.html') || url.pathname === '/' || url.pathname.includes('.js')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   // Determina a estratégia baseada no tipo de arquivo
   const isStaticAsset = /\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i.test(url.pathname);
-  const isCodeFile = /\.(js|jsx|ts|tsx|css|html)$/i.test(url.pathname) || url.pathname === '/' || url.pathname === '/index.html';
+  const isCodeFile = /\.(jsx|ts|tsx|css)$/i.test(url.pathname);
 
   if (isCodeFile) {
     // Network-First para arquivos de código: sempre busca atualização

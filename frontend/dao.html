@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Desabilitar cache -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
     <title>DAO - Governança Comunitária</title>
     <style>
         * {
@@ -272,11 +278,70 @@
             cursor: pointer;
             color: #999;
         }
+
+        /* Avatar com borda colorida */
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        /* Botões de votação */
+        .comment-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 0;
+        }
+
+        .vote-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .vote-btn:hover:not(:disabled) {
+            background: #e0e0e0;
+            transform: scale(1.05);
+        }
+
+        .vote-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .vote-btn.voted {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        .vote-btn span {
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🏛️ DAO - Governança Comunitária</h1>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h1 style="margin: 0;">🏛️ DAO - Governança Comunitária</h1>
+            <a href="/" style="background: #e0e0e0; color: #333; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 14px;">← Voltar</a>
+        </div>
 
         <div class="tabs">
             <button class="tab active" onclick="showTab('comentarios')">💬 Comentários</button>
@@ -351,8 +416,8 @@
             </div>
 
             <div class="vote-buttons">
-                <button class="btn-favor" onclick="votar(true)">👍 A Favor</button>
-                <button class="btn-contra" onclick="votar(false)">👎 Contra</button>
+                <button class="btn-favor" onclick="votarSugestao(true)">👍 A Favor</button>
+                <button class="btn-contra" onclick="votarSugestao(false)">👎 Contra</button>
             </div>
         </div>
     </div>
@@ -376,9 +441,20 @@
         }
 
         // Comentários
+        function obterCorReputacao(reputacao) {
+            if (reputacao >= 180) return { cor: '#FFD700', badge: '👑 Lendário' };
+            if (reputacao >= 150) return { cor: '#4CAF50', badge: '💎 Excelente' };
+            if (reputacao >= 120) return { cor: '#2196F3', badge: '⭐ Muito Bom' };
+            if (reputacao >= 100) return { cor: '#667eea', badge: '🌟 Confiável' };
+            if (reputacao >= 70) return { cor: '#FF9800', badge: '⚠️ Regular' };
+            if (reputacao >= 40) return { cor: '#FF5722', badge: '⚠️ Atenção' };
+            return { cor: '#F44336', badge: '❌ Crítico' };
+        }
+
         async function carregarComentarios() {
             try {
-                const response = await fetch(`${API_URL}/dao/comentarios?limite=50`);
+                const usuario = localStorage.getItem('usuario_nome') || 'Anônimo';
+                const response = await fetch(`${API_URL}/dao/comentarios?limite=50&usuario_atual=${usuario}`);
                 const comentarios = await response.json();
 
                 const lista = document.getElementById('lista-comentarios');
@@ -388,17 +464,84 @@
                     return;
                 }
 
-                lista.innerHTML = comentarios.map(c => `
-                    <div class="comment">
-                        <div class="comment-header">
-                            <span class="username">${c.usuario_nome}</span>
-                            <span class="timestamp">${formatarData(c.data_criacao)}</span>
+                lista.innerHTML = comentarios.map(c => {
+                    const corInfo = obterCorReputacao(c.reputacao_autor);
+                    const iniciais = c.usuario_nome.substring(0, 2).toUpperCase();
+                    const jaVotou = c.voto_usuario;
+
+                    return `
+                        <div class="comment" style="border-left: 4px solid ${corInfo.cor}; padding: 12px; margin-bottom: 8px;">
+                            <div style="display: flex; gap: 12px;">
+                                <div class="avatar" style="border: 3px solid ${corInfo.cor}; width: 40px; height: 40px; font-size: 16px;">
+                                    ${iniciais}
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div>
+                                                <span class="username" style="color: ${corInfo.cor}; font-weight: 600; font-size: 15px;">
+                                                    ${c.usuario_nome}
+                                                </span>
+                                                <span style="font-size: 16px; color: #222; margin-left: 8px; line-height: 1.5;">
+                                                    ${c.conteudo}
+                                                </span>
+                                            </div>
+                                            <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                                                ${corInfo.badge} (${Math.round(c.reputacao_autor)} pts)
+                                            </div>
+                                        </div>
+                                        <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                                            <div class="comment-actions" style="margin: 0;">
+                                                <button class="vote-btn ${jaVotou === 'like' ? 'voted' : ''}"
+                                                        onclick="votarComentario(${c.id}, 'like')">
+                                                    👍 <span>${c.likes}</span>
+                                                </button>
+                                                <button class="vote-btn ${jaVotou === 'dislike' ? 'voted' : ''}"
+                                                        onclick="votarComentario(${c.id}, 'dislike')">
+                                                    👎 <span>${c.dislikes}</span>
+                                                </button>
+                                            </div>
+                                            <span class="timestamp" style="font-size: 11px;">${formatarData(c.data_criacao)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <p>${c.conteudo}</p>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             } catch (error) {
                 console.error('Erro ao carregar comentários:', error);
+            }
+        }
+
+        async function votarComentario(comentarioId, tipo) {
+            const usuario = localStorage.getItem('usuario_nome') || 'Anônimo';
+            console.log('Votando:', {comentarioId, tipo, usuario});
+
+            if (usuario === 'Anônimo') {
+                console.log('Usuário anônimo, não pode votar');
+                return;
+            }
+
+            try {
+                const url = `${API_URL}/dao/comentarios/${comentarioId}/votar?usuario_nome=${usuario}&tipo=${tipo}`;
+                console.log('URL da votação:', url);
+
+                const response = await fetch(url, {
+                    method: 'POST'
+                });
+
+                console.log('Resposta:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Voto registrado:', data);
+                    carregarComentarios();
+                } else {
+                    console.error('Erro HTTP:', response.status);
+                }
+            } catch (error) {
+                console.error('Erro ao votar:', error);
             }
         }
 
@@ -427,14 +570,12 @@
 
                 if (response.ok) {
                     document.getElementById('comentario-texto').value = '';
-                    alert('✅ Comentário enviado!');
                     carregarComentarios();
                 } else {
-                    alert('Erro ao enviar comentário');
+                    console.error('Erro ao enviar comentário');
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                alert('Erro ao enviar comentário');
             }
         }
 
@@ -628,7 +769,7 @@
             document.getElementById('votos-gerados').textContent = votos;
         });
 
-        async function votar(favor) {
+        async function votarSugestao(favor) {
             const tokens = parseInt(document.getElementById('tokens-voto').value) || 1;
 
             if (!usuarioAtual || usuarioAtual === 'Anônimo') {

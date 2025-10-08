@@ -123,6 +123,23 @@ class Comentario(Base):
     editado = Column(Boolean, default=False)
     data_edicao = Column(DateTime)
 
+    # Relacionamento com votos
+    votos = relationship("VotoComentario", back_populates="comentario")
+
+
+class VotoComentario(Base):
+    """Votos (like/dislike) em comentários"""
+    __tablename__ = "votos_comentarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    comentario_id = Column(Integer, ForeignKey("comentarios.id"), nullable=False)
+    usuario_nome = Column(String, nullable=False, index=True)
+    tipo = Column(String, nullable=False)  # "like" ou "dislike"
+    data_voto = Column(DateTime, default=datetime.now)
+
+    # Relacionamento
+    comentario = relationship("Comentario", back_populates="votos")
+
 
 class StatusSugestao(str, enum.Enum):
     """Status possíveis de uma sugestão"""

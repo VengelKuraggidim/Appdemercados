@@ -404,6 +404,11 @@ async def adicionar_preco_manual(
         preco_id=novo_preco.id
     )
 
+    # Validação automática de preço (compara com outros preços)
+    from app.utils.crypto_manager import ReputacaoManager
+    rep_manager = ReputacaoManager(db)
+    validacao_resultado = rep_manager.validar_preco_automaticamente(novo_preco.id)
+
     return {
         "contribuicao": ContribuicaoResponse(
             id=novo_preco.id,
@@ -417,7 +422,8 @@ async def adicionar_preco_manual(
             usuario_nome=novo_preco.usuario_nome,
             verificado=novo_preco.verificado
         ),
-        "recompensa": recompensa
+        "recompensa": recompensa,
+        "validacao": validacao_resultado
     }
 
 
@@ -1357,20 +1363,67 @@ async def criar_comentario(
     return novo_comentario
 
 
-@app.get("/api/dao/comentarios", response_model=List[ComentarioResponse])
+@app.get("/api/dao/comentarios")
 async def listar_comentarios(
     limite: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    usuario_atual: str = Query(default=None),
     db: Session = Depends(get_db)
 ):
     """
     Lista comentários da comunidade (mais recentes primeiro)
+    Inclui informações de votos e reputação do autor
     """
+    from app.models.database import VotoComentario, Carteira
+    from sqlalchemy import func
+
     comentarios = db.query(Comentario).order_by(
         Comentario.data_criacao.desc()
     ).offset(offset).limit(limite).all()
 
-    return comentarios
+    resultado = []
+    for c in comentarios:
+        # Contar likes e dislikes
+        likes = db.query(func.count(VotoComentario.id)).filter(
+            VotoComentario.comentario_id == c.id,
+            VotoComentario.tipo == "like"
+        ).scalar() or 0
+
+        dislikes = db.query(func.count(VotoComentario.id)).filter(
+            VotoComentario.comentario_id == c.id,
+            VotoComentario.tipo == "dislike"
+        ).scalar() or 0
+
+        # Verificar se usuário atual já votou
+        voto_usuario = None
+        if usuario_atual:
+            voto_obj = db.query(VotoComentario).filter(
+                VotoComentario.comentario_id == c.id,
+                VotoComentario.usuario_nome == usuario_atual
+            ).first()
+            if voto_obj:
+                voto_usuario = voto_obj.tipo
+
+        # Buscar reputação do autor
+        carteira = db.query(Carteira).filter(
+            Carteira.usuario_nome == c.usuario_nome
+        ).first()
+        reputacao = carteira.reputacao if carteira else 100
+
+        resultado.append({
+            "id": c.id,
+            "usuario_nome": c.usuario_nome,
+            "conteudo": c.conteudo,
+            "data_criacao": c.data_criacao,
+            "editado": c.editado,
+            "data_edicao": c.data_edicao,
+            "likes": likes,
+            "dislikes": dislikes,
+            "voto_usuario": voto_usuario,
+            "reputacao_autor": reputacao
+        })
+
+    return resultado
 
 
 @app.delete("/api/dao/comentarios/{comentario_id}")
@@ -1395,6 +1448,82 @@ async def deletar_comentario(
     db.commit()
 
     return {"message": "Comentário deletado com sucesso"}
+
+
+@app.post("/api/dao/comentarios/{comentario_id}/votar")
+async def votar_comentario(
+    comentario_id: int,
+    usuario_nome: str = Query(...),
+    tipo: str = Query(..., regex="^(like|dislike)$"),
+    db: Session = Depends(get_db)
+):
+    """
+    Vota (like/dislike) em um comentário
+
+    Regras:
+    - Um usuário só pode votar uma vez por comentário
+    - Pode mudar o voto (de like para dislike ou vice-versa)
+    - A reputação do autor é recalculada automaticamente
+    """
+    from app.models.database import VotoComentario
+    from app.utils.crypto_manager import ReputacaoManager
+
+    # Verificar se comentário existe
+    comentario = db.query(Comentario).filter(Comentario.id == comentario_id).first()
+    if not comentario:
+        raise HTTPException(status_code=404, detail="Comentário não encontrado")
+
+    # Verificar se já votou
+    voto_existente = db.query(VotoComentario).filter(
+        VotoComentario.comentario_id == comentario_id,
+        VotoComentario.usuario_nome == usuario_nome
+    ).first()
+
+    if voto_existente:
+        # Se já votou do mesmo tipo, remove o voto
+        if voto_existente.tipo == tipo:
+            db.delete(voto_existente)
+            db.commit()
+            mensagem = "Voto removido"
+        else:
+            # Muda o voto
+            voto_existente.tipo = tipo
+            voto_existente.data_voto = datetime.now()
+            db.commit()
+            mensagem = f"Voto alterado para {tipo}"
+    else:
+        # Novo voto
+        novo_voto = VotoComentario(
+            comentario_id=comentario_id,
+            usuario_nome=usuario_nome,
+            tipo=tipo
+        )
+        db.add(novo_voto)
+        db.commit()
+        mensagem = f"Voto registrado: {tipo}"
+
+    # Recalcular reputação do autor do comentário
+    rep_manager = ReputacaoManager(db)
+    resultado_rep = rep_manager.calcular_reputacao_comentario(comentario_id)
+
+    # Contar votos atuais
+    from sqlalchemy import func
+    likes = db.query(func.count(VotoComentario.id)).filter(
+        VotoComentario.comentario_id == comentario_id,
+        VotoComentario.tipo == "like"
+    ).scalar() or 0
+
+    dislikes = db.query(func.count(VotoComentario.id)).filter(
+        VotoComentario.comentario_id == comentario_id,
+        VotoComentario.tipo == "dislike"
+    ).scalar() or 0
+
+    return {
+        "mensagem": mensagem,
+        "likes": likes,
+        "dislikes": dislikes,
+        "reputacao_atualizada": resultado_rep
+    }
 
 
 # -------- SUGESTÕES --------
@@ -1451,17 +1580,21 @@ async def criar_sugestao(
 @app.get("/api/dao/sugestoes", response_model=List[SugestaoResponse])
 async def listar_sugestoes(
     status: Optional[str] = None,
+    usuario_nome: Optional[str] = None,
     limite: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db)
 ):
     """
-    Lista sugestões (pode filtrar por status)
+    Lista sugestões (pode filtrar por status e/ou usuário)
     """
     query = db.query(Sugestao)
 
     if status:
         query = query.filter(Sugestao.status == status)
+
+    if usuario_nome:
+        query = query.filter(Sugestao.usuario_nome == usuario_nome)
 
     sugestoes = query.order_by(Sugestao.data_criacao.desc()).offset(offset).limit(limite).all()
 
@@ -2017,6 +2150,22 @@ async def obter_reputacao(
         taxa_aprovacao=round(taxa_aprovacao, 1),
         nivel_confianca=nivel
     )
+
+
+@app.get("/api/reputacao/validacoes/{usuario_nome}", response_model=List[ValidacaoResponse])
+async def listar_validacoes_recebidas(
+    usuario_nome: str,
+    limite: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """
+    Lista validações recebidas por um usuário
+    """
+    validacoes = db.query(ValidacaoPreco).filter(
+        ValidacaoPreco.validado_nome == usuario_nome
+    ).order_by(ValidacaoPreco.data_validacao.desc()).limit(limite).all()
+
+    return validacoes
 
 
 # Mount static files AFTER all API routes

@@ -79,6 +79,163 @@ class ReputacaoManager:
 
         return comentarios_hoje < self.MAX_COMENTARIOS_DIA
 
+    def calcular_reputacao_comentario(self, comentario_id: int) -> dict:
+        """
+        Calcula e atualiza reputação do autor do comentário baseado em likes/dislikes
+
+        Fórmula:
+        - Se likes > dislikes: ganha (likes - dislikes) / total_votos * 0.1 pontos
+        - Se dislikes > likes: perde (dislikes - likes) / total_votos * 0.1 pontos
+
+        Exemplo:
+        - 10 likes, 1 dislike: +0.09 pts ((10-1)/100 * 1 = 0.09)
+        - 11 likes, 22 dislikes: -0.11 pts ((22-11)/100 * 1 = -0.11)
+        """
+        from app.models.database import Comentario, VotoComentario
+        from sqlalchemy import func
+
+        comentario = self.db.query(Comentario).filter(Comentario.id == comentario_id).first()
+        if not comentario:
+            return {"sucesso": False, "mensagem": "Comentário não encontrado"}
+
+        # Contar likes e dislikes
+        likes = self.db.query(func.count(VotoComentario.id)).filter(
+            VotoComentario.comentario_id == comentario_id,
+            VotoComentario.tipo == "like"
+        ).scalar() or 0
+
+        dislikes = self.db.query(func.count(VotoComentario.id)).filter(
+            VotoComentario.comentario_id == comentario_id,
+            VotoComentario.tipo == "dislike"
+        ).scalar() or 0
+
+        total_votos = likes + dislikes
+
+        if total_votos == 0:
+            return {
+                "sucesso": True,
+                "mensagem": "Sem votos ainda",
+                "alteracao": 0,
+                "likes": 0,
+                "dislikes": 0
+            }
+
+        # Calcular diferença
+        diferenca = likes - dislikes
+
+        # Fórmula: (diferença / total) * 0.1
+        # Se diferenca positiva: ganha reputação
+        # Se diferenca negativa: perde reputação
+        alteracao = round((diferenca / total_votos) * 0.1, 2)
+
+        # Atualizar reputação (sem acumular - usa valor absoluto do cálculo)
+        if alteracao != 0:
+            resultado = self.adicionar_reputacao(
+                comentario.usuario_nome,
+                alteracao,
+                f"Votação em comentário ({likes}👍 / {dislikes}👎)"
+            )
+
+            return {
+                "sucesso": True,
+                "mensagem": f"Reputação atualizada: {alteracao:+.2f} pts",
+                "alteracao": alteracao,
+                "likes": likes,
+                "dislikes": dislikes,
+                "total_votos": total_votos
+            }
+        else:
+            return {
+                "sucesso": True,
+                "mensagem": "Votos empatados, sem alteração",
+                "alteracao": 0,
+                "likes": likes,
+                "dislikes": dislikes,
+                "total_votos": total_votos
+            }
+
+    def validar_preco_automaticamente(self, preco_id: int) -> dict:
+        """
+        Valida um preço automaticamente comparando com outros preços do mesmo produto
+
+        Lógica:
+        - Se o preço está próximo da mediana (± 30%): +2 reputação
+        - Se o preço está muito diferente da mediana (> 50%): -5 reputação
+        - Precisa de pelo menos 2 outros preços para comparar
+        """
+        from app.models.database import Preco, Produto, Carteira
+        from sqlalchemy import func
+        from datetime import timedelta
+        import statistics
+
+        # Buscar o preço adicionado
+        preco_novo = self.db.query(Preco).filter(Preco.id == preco_id).first()
+        if not preco_novo or not preco_novo.manual:
+            return {"sucesso": False, "mensagem": "Preço não encontrado ou não é manual"}
+
+        # Buscar outros preços do mesmo produto (últimos 30 dias)
+        data_limite = datetime.now() - timedelta(days=30)
+        outros_precos = self.db.query(Preco).filter(
+            Preco.produto_id == preco_novo.produto_id,
+            Preco.id != preco_id,
+            Preco.data_coleta >= data_limite,
+            Preco.preco > 0  # Ignorar preços inválidos
+        ).all()
+
+        # Precisa de pelo menos 2 outros preços para comparar
+        if len(outros_precos) < 2:
+            return {
+                "sucesso": True,
+                "mensagem": "Poucos preços para comparar, sem alteração de reputação",
+                "alteracao_reputacao": 0
+            }
+
+        # Calcular mediana dos outros preços
+        precos_valores = [p.preco for p in outros_precos]
+        mediana = statistics.median(precos_valores)
+
+        # Calcular diferença percentual
+        diferenca_percentual = abs((preco_novo.preco - mediana) / mediana) * 100
+
+        # Decidir reputação
+        if diferenca_percentual <= 30:
+            # Preço próximo da média: +2 pontos
+            resultado = self.adicionar_reputacao(
+                preco_novo.usuario_nome,
+                2,
+                f"Preço válido (±{diferenca_percentual:.1f}% da média)"
+            )
+            return {
+                "sucesso": True,
+                "mensagem": f"✅ Preço validado! Próximo da média ({diferenca_percentual:.1f}% de diferença)",
+                "alteracao_reputacao": 2,
+                "diferenca_percentual": diferenca_percentual,
+                "mediana": mediana
+            }
+        elif diferenca_percentual > 50:
+            # Preço muito diferente: -5 pontos
+            resultado = self.adicionar_reputacao(
+                preco_novo.usuario_nome,
+                -5,
+                f"Preço suspeito ({diferenca_percentual:.1f}% diferente da média)"
+            )
+            return {
+                "sucesso": True,
+                "mensagem": f"⚠️ Preço muito diferente da média ({diferenca_percentual:.1f}% de diferença)",
+                "alteracao_reputacao": -5,
+                "diferenca_percentual": diferenca_percentual,
+                "mediana": mediana
+            }
+        else:
+            # Preço aceitável mas não muito próximo: sem alteração
+            return {
+                "sucesso": True,
+                "mensagem": f"Preço aceitável ({diferenca_percentual:.1f}% de diferença)",
+                "alteracao_reputacao": 0,
+                "diferenca_percentual": diferenca_percentual,
+                "mediana": mediana
+            }
+
 
 class CryptoManager:
     """Gerenciador de criptomoeda do app"""
