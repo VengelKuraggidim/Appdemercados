@@ -143,12 +143,13 @@ class VotoComentario(Base):
 
 class StatusSugestao(str, enum.Enum):
     """Status possíveis de uma sugestão"""
-    PENDENTE_APROVACAO = "pendente_aprovacao"  # Aguardando aprovação do admin
+    PENDENTE_APROVACAO = "pendente_aprovacao"  # Aguardando aprovação do moderador
     EM_VOTACAO = "em_votacao"  # Aprovada e em votação
     APROVADA = "aprovada"  # Atingiu 60% dos votos
+    EM_IMPLEMENTACAO = "em_implementacao"  # Moderador aceitou implementar
+    IMPLEMENTADA = "implementada"  # Já foi implementada (moderador recebe tokens)
     REJEITADA = "rejeitada"  # Não atingiu votos suficientes
-    IMPLEMENTADA = "implementada"  # Já foi implementada
-    CANCELADA = "cancelada"  # Cancelada pelo admin
+    CANCELADA = "cancelada"  # Cancelada
 
 
 class Sugestao(Base):
@@ -171,15 +172,44 @@ class Sugestao(Base):
     aprovadores = Column(String)  # Lista de usuários que aprovaram (separados por vírgula)
     total_aprovadores = Column(Integer, default=0)
 
+    # Sistema de Escrow de Tokens (Contrato Inteligente)
+    tokens_escrow = Column(Float, default=0.0)  # Tokens bloqueados (5 tokens da criação)
+    moderador_implementador = Column(String)  # Moderador que aceitou implementar
+    data_candidatura_moderador = Column(DateTime)  # Quando moderador aceitou
+
     # Datas
     data_criacao = Column(DateTime, default=datetime.now, index=True)
     data_aprovacao = Column(DateTime)  # Quando foi aprovada para votação
     data_finalizacao = Column(DateTime)  # Quando foi finalizada (aprovada/rejeitada)
+    data_implementacao = Column(DateTime)  # Quando foi marcada como implementada
 
     # Observações
     motivo_rejeicao = Column(String)  # Se foi rejeitada, por quê
+    motivo_cancelamento = Column(String)  # Se foi cancelada, por quê
 
     votos = relationship("Voto", back_populates="sugestao", cascade="all, delete-orphan")
+
+
+class Moderador(Base):
+    """Moderadores autorizados a implementar sugestões"""
+    __tablename__ = "moderadores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_nome = Column(String, unique=True, nullable=False, index=True)
+    ativo = Column(Boolean, default=True)  # Pode desativar moderador
+
+    # Estatísticas
+    total_sugestoes_aprovadas = Column(Integer, default=0)  # Quantas aprovou para votação
+    total_sugestoes_implementadas = Column(Integer, default=0)  # Quantas implementou
+    total_sugestoes_canceladas = Column(Integer, default=0)  # Quantas não conseguiu implementar
+    tokens_ganhos_total = Column(Float, default=0.0)  # Total de tokens ganhos
+
+    # Reputação como moderador
+    reputacao_moderador = Column(Integer, default=100)  # Começa com 100
+
+    # Datas
+    data_cadastro = Column(DateTime, default=datetime.now)
+    ultima_atividade = Column(DateTime, default=datetime.now)
 
 
 class Voto(Base):

@@ -5,6 +5,7 @@ Executa scraping periódico para manter preços atualizados
 """
 import sys
 import os
+import logging
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
@@ -14,12 +15,23 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app.models.database import get_db, Produto, Preco
 from app.scrapers.scraper_manager import ScraperManager
 
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/atualizacao_precos.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 def atualizar_precos_produtos():
     """Atualiza preços dos produtos mais buscados"""
-    print(f"\n{'='*60}")
-    print(f"🔄 Iniciando atualização de preços - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*60}\n")
+    logger.info("="*60)
+    logger.info(f"🔄 Iniciando atualização de preços - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("="*60)
 
     db = next(get_db())
     scraper_manager = ScraperManager()
@@ -27,72 +39,78 @@ def atualizar_precos_produtos():
     # Buscar produtos com preços desatualizados (mais de 24h)
     data_limite = datetime.now() - timedelta(hours=24)
 
-    # Pegar os 20 produtos mais recentes/buscados
-    produtos = db.query(Produto).join(Preco).filter(
-        Preco.data_coleta < data_limite
-    ).group_by(Produto.id).limit(20).all()
+    try:
+        # Pegar os 20 produtos mais recentes/buscados
+        produtos = db.query(Produto).join(Preco).filter(
+            Preco.data_coleta < data_limite
+        ).group_by(Produto.id).limit(20).all()
 
-    if not produtos:
-        print("✅ Nenhum produto precisa de atualização no momento")
-        return
+        if not produtos:
+            logger.info("✅ Nenhum produto precisa de atualização no momento")
+            return
 
-    print(f"📦 Encontrados {len(produtos)} produtos para atualizar\n")
+        logger.info(f"📦 Encontrados {len(produtos)} produtos para atualizar")
 
-    total_atualizados = 0
-    total_novos_precos = 0
+        total_atualizados = 0
+        total_novos_precos = 0
 
-    for produto in produtos:
-        print(f"🔍 Atualizando: {produto.nome}...")
+        for produto in produtos:
+            logger.info(f"🔍 Atualizando: {produto.nome}...")
 
-        try:
-            # Fazer scraping do produto
-            resultados = scraper_manager.search_all(
-                termo=produto.nome,
-                supermercados=None
-            )
+            try:
+                # Fazer scraping do produto
+                resultados = scraper_manager.search_all(
+                    termo=produto.nome,
+                    supermercados=None
+                )
 
-            if resultados:
-                for item in resultados:
-                    # Verificar se já existe preço recente deste supermercado
-                    preco_existente = db.query(Preco).filter(
-                        Preco.produto_id == produto.id,
-                        Preco.supermercado == item['supermercado'],
-                        Preco.data_coleta >= data_limite
-                    ).first()
+                if resultados:
+                    for item in resultados:
+                        # Verificar se já existe preço recente deste supermercado
+                        preco_existente = db.query(Preco).filter(
+                            Preco.produto_id == produto.id,
+                            Preco.supermercado == item['supermercado'],
+                            Preco.data_coleta >= data_limite
+                        ).first()
 
-                    if not preco_existente:
-                        # Adicionar novo preço
-                        novo_preco = Preco(
-                            produto_id=produto.id,
-                            supermercado=item['supermercado'],
-                            preco=item['preco'],
-                            em_promocao=item.get('em_promocao', False),
-                            url=item.get('url'),
-                            disponivel=item.get('disponivel', True),
-                            data_coleta=datetime.now(),
-                            manual=False
-                        )
-                        db.add(novo_preco)
-                        total_novos_precos += 1
-                        print(f"  ✅ {item['supermercado']}: R$ {item['preco']:.2f}")
+                        if not preco_existente:
+                            # Adicionar novo preço
+                            novo_preco = Preco(
+                                produto_id=produto.id,
+                                supermercado=item['supermercado'],
+                                preco=item['preco'],
+                                em_promocao=item.get('em_promocao', False),
+                                url=item.get('url'),
+                                disponivel=item.get('disponivel', True),
+                                data_coleta=datetime.now(),
+                                manual=False
+                            )
+                            db.add(novo_preco)
+                            total_novos_precos += 1
+                            logger.info(f"  ✅ {item['supermercado']}: R$ {item['preco']:.2f}")
 
-                total_atualizados += 1
-                db.commit()
-            else:
-                print(f"  ⚠️  Nenhum resultado encontrado")
+                    total_atualizados += 1
+                    db.commit()
+                else:
+                    logger.warning(f"  ⚠️  Nenhum resultado encontrado para {produto.nome}")
 
-        except Exception as e:
-            print(f"  ❌ Erro: {str(e)}")
-            continue
+            except Exception as e:
+                logger.error(f"  ❌ Erro ao atualizar {produto.nome}: {str(e)}")
+                db.rollback()
+                continue
 
-    print(f"\n{'='*60}")
-    print(f"📊 Resumo da Atualização:")
-    print(f"   • Produtos atualizados: {total_atualizados}")
-    print(f"   • Novos preços adicionados: {total_novos_precos}")
-    print(f"   • Concluído em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*60}\n")
+        logger.info("="*60)
+        logger.info("📊 Resumo da Atualização:")
+        logger.info(f"   • Produtos atualizados: {total_atualizados}")
+        logger.info(f"   • Novos preços adicionados: {total_novos_precos}")
+        logger.info(f"   • Concluído em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info("="*60)
 
-    db.close()
+    except Exception as e:
+        logger.error(f"❌ Erro fatal na atualização de preços: {str(e)}")
+        raise
+    finally:
+        db.close()
 
 
 def atualizar_produtos_principais():
@@ -108,65 +126,71 @@ def atualizar_produtos_principais():
         "pão"
     ]
 
-    print(f"\n{'='*60}")
-    print(f"🛒 Atualizando produtos básicos - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*60}\n")
+    logger.info("="*60)
+    logger.info(f"🛒 Atualizando produtos básicos - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("="*60)
 
     db = next(get_db())
     scraper_manager = ScraperManager()
 
     total_precos = 0
 
-    for termo in produtos_basicos:
-        print(f"\n🔍 Buscando: {termo}...")
+    try:
+        for termo in produtos_basicos:
+            logger.info(f"🔍 Buscando: {termo}...")
 
-        try:
-            resultados = scraper_manager.search_all(termo=termo, supermercados=None)
+            try:
+                resultados = scraper_manager.search_all(termo=termo, supermercados=None)
 
-            if resultados:
-                for item in resultados[:3]:  # Top 3 resultados por termo
-                    # Buscar ou criar produto
-                    produto = db.query(Produto).filter(
-                        Produto.nome.ilike(f"%{item['nome'][:50]}%")
-                    ).first()
+                if resultados:
+                    for item in resultados[:3]:  # Top 3 resultados por termo
+                        # Buscar ou criar produto
+                        produto = db.query(Produto).filter(
+                            Produto.nome.ilike(f"%{item['nome'][:50]}%")
+                        ).first()
 
-                    if not produto:
-                        produto = Produto(
-                            nome=item['nome'],
-                            marca=item.get('marca'),
-                            categoria='basicos'
+                        if not produto:
+                            produto = Produto(
+                                nome=item['nome'],
+                                marca=item.get('marca'),
+                                categoria='basicos'
+                            )
+                            db.add(produto)
+                            db.flush()
+
+                        # Adicionar preço
+                        novo_preco = Preco(
+                            produto_id=produto.id,
+                            supermercado=item['supermercado'],
+                            preco=item['preco'],
+                            em_promocao=item.get('em_promocao', False),
+                            url=item.get('url'),
+                            disponivel=item.get('disponivel', True),
+                            data_coleta=datetime.now(),
+                            manual=False
                         )
-                        db.add(produto)
-                        db.flush()
+                        db.add(novo_preco)
+                        total_precos += 1
+                        logger.info(f"  ✅ {item['nome'][:40]} - {item['supermercado']}: R$ {item['preco']:.2f}")
 
-                    # Adicionar preço
-                    novo_preco = Preco(
-                        produto_id=produto.id,
-                        supermercado=item['supermercado'],
-                        preco=item['preco'],
-                        em_promocao=item.get('em_promocao', False),
-                        url=item.get('url'),
-                        disponivel=item.get('disponivel', True),
-                        data_coleta=datetime.now(),
-                        manual=False
-                    )
-                    db.add(novo_preco)
-                    total_precos += 1
-                    print(f"  ✅ {item['nome'][:40]} - {item['supermercado']}: R$ {item['preco']:.2f}")
+                    db.commit()
+                else:
+                    logger.warning(f"  ⚠️  Nenhum resultado para {termo}")
 
-                db.commit()
-            else:
-                print(f"  ⚠️  Nenhum resultado")
+            except Exception as e:
+                logger.error(f"  ❌ Erro ao buscar {termo}: {str(e)}")
+                db.rollback()
+                continue
 
-        except Exception as e:
-            print(f"  ❌ Erro: {str(e)}")
-            continue
+        logger.info("="*60)
+        logger.info(f"📊 Total de preços adicionados: {total_precos}")
+        logger.info("="*60)
 
-    print(f"\n{'='*60}")
-    print(f"📊 Total de preços adicionados: {total_precos}")
-    print(f"{'='*60}\n")
-
-    db.close()
+    except Exception as e:
+        logger.error(f"❌ Erro fatal na atualização de produtos básicos: {str(e)}")
+        raise
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

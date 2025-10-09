@@ -305,20 +305,26 @@ class CryptoManager:
         """Hash simples de senha (em produção usar bcrypt)"""
         return hashlib.sha256(senha.encode()).hexdigest()
 
-    def minerar_tokens(self, usuario_nome: str, preco_id: int = None) -> dict:
-        """Recompensa usuário por contribuir com preço"""
+    def minerar_tokens(self, usuario_nome: str, preco_id: int = None, quantidade: float = None, descricao: str = None) -> dict:
+        """Recompensa usuário por contribuir com preço ou libera tokens do escrow"""
+        if quantidade is None:
+            quantidade = self.RECOMPENSA_CONTRIBUICAO
+
+        if descricao is None:
+            descricao = "Recompensa por adicionar preço"
+
         carteira = self.criar_ou_obter_carteira(usuario_nome)
 
         # Adicionar tokens
-        carteira.saldo += self.RECOMPENSA_CONTRIBUICAO
+        carteira.saldo += quantidade
         carteira.ultima_atualizacao = datetime.now()
 
         # Registrar transação
         self._registrar_transacao(
             carteira_id=carteira.id,
             tipo="mineracao",
-            quantidade=self.RECOMPENSA_CONTRIBUICAO,
-            descricao="Recompensa por adicionar preço",
+            quantidade=quantidade,
+            descricao=descricao,
             preco_id=preco_id
         )
 
@@ -326,9 +332,9 @@ class CryptoManager:
 
         return {
             "sucesso": True,
-            "mensagem": f"Você minerou {self.RECOMPENSA_CONTRIBUICAO} tokens!",
+            "mensagem": f"Você minerou {quantidade} tokens!",
             "saldo_atual": carteira.saldo,
-            "tokens_ganhos": self.RECOMPENSA_CONTRIBUICAO
+            "tokens_ganhos": quantidade
         }
 
     def gastar_tokens(self, usuario_nome: str, quantidade: float = None, descricao: str = "Busca de produto") -> dict:

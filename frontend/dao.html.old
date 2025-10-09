@@ -370,12 +370,12 @@
                     Sugestões precisam ser aprovadas antes de entrar em votação. Use votação quadrática: mais tokens = mais votos, mas com custo crescente.
                 </p>
                 <div class="form-group">
-                    <label>Título</label>
-                    <input type="text" id="sugestao-titulo" placeholder="Ex: Adicionar modo escuro" maxlength="200">
+                    <label>Título (mín. 5 caracteres)</label>
+                    <input type="text" id="sugestao-titulo" placeholder="Ex: Adicionar modo escuro" maxlength="200" minlength="5">
                 </div>
                 <div class="form-group">
-                    <label>Descrição</label>
-                    <textarea id="sugestao-descricao" placeholder="Descreva sua sugestão em detalhes..." maxlength="2000"></textarea>
+                    <label>Descrição (mín. 10 caracteres)</label>
+                    <textarea id="sugestao-descricao" placeholder="Descreva sua sugestão em detalhes (mínimo 10 caracteres)..." maxlength="2000" minlength="10"></textarea>
                 </div>
                 <button onclick="criarSugestao()">Criar Sugestão</button>
             </div>
@@ -386,8 +386,10 @@
                     <button onclick="filtrarSugestoes('')">Todas</button>
                     <button onclick="filtrarSugestoes('pendente_aprovacao')">Pendentes</button>
                     <button onclick="filtrarSugestoes('em_votacao')">Em Votação</button>
-                    <button onclick="filtrarSugestoes('aprovada')">Aprovadas</button>
                 </div>
+                <p style="margin-top: 10px; font-size: 13px; color: #666;">
+                    ℹ️ Sugestões aprovadas e implementadas estão na aba <strong>📊 Estatísticas</strong>
+                </p>
             </div>
 
             <div id="lista-sugestoes"></div>
@@ -579,12 +581,31 @@
             }
         }
 
+        // Função para escapar HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         // Sugestões
         async function carregarSugestoes(status = '') {
             try {
                 const url = status ? `${API_URL}/dao/sugestoes?status=${status}` : `${API_URL}/dao/sugestoes`;
                 const response = await fetch(url);
-                const sugestoes = await response.json();
+                let sugestoes = await response.json();
+
+                // Filtrar para excluir sugestões aprovadas, em implementação, implementadas e rejeitadas
+                // (aprovadas/implementadas aparecem na aba Estatísticas, rejeitadas são descartadas)
+                sugestoes = sugestoes.filter(s =>
+                    s.status !== 'aprovada' &&
+                    s.status !== 'em_implementacao' &&
+                    s.status !== 'implementada' &&
+                    s.status !== 'rejeitada'
+                );
+
+                // Armazenar no cache
+                sugestoesCache = sugestoes;
 
                 const lista = document.getElementById('lista-sugestoes');
 
@@ -610,6 +631,12 @@
                             <h3>${s.titulo}</h3>
                             <p>${s.descricao}</p>
 
+                            ${s.tokens_escrow > 0 ? `
+                                <div style="display: inline-block; background: #fff3cd; color: #856404; padding: 6px 12px; border-radius: 8px; font-size: 13px; margin-top: 10px;">
+                                    💰 ${s.tokens_escrow} tokens em escrow
+                                </div>
+                            ` : ''}
+
                             ${s.status === 'pendente_aprovacao' && usuarioAtual === 'Vengel' ? `
                                 <div style="margin-top: 15px;">
                                     <button onclick="aprovarSugestao(${s.id})">✅ Aprovar para Votação</button>
@@ -618,6 +645,10 @@
                             ` : ''}
 
                             ${s.status === 'em_votacao' ? `
+                                <div style="background: #e7f3ff; padding: 10px; border-radius: 8px; margin: 15px 0; font-size: 13px;">
+                                    👮 <strong>Aprovado por:</strong> Moderador Vengel
+                                </div>
+
                                 <div class="voting-section">
                                     <div class="vote-stats">
                                         <div class="vote-stat">
@@ -644,16 +675,80 @@
                                         ${totalVotos} votos totais | ${s.total_tokens_votados} tokens usados
                                     </p>
 
-                                    <button onclick="abrirModalVoto(${s.id}, '${s.titulo}', '${s.descricao}')">
-                                        🗳️ Votar Nesta Sugestão
-                                    </button>
+                                    ${s.usuario_nome === usuarioAtual ? `
+                                        <p style="color: #666; font-style: italic; padding: 10px; background: #f0f0f0; border-radius: 8px;">
+                                            ℹ️ Você não pode votar na sua própria sugestão
+                                        </p>
+                                    ` : `
+                                        <button
+                                            data-sugestao-id="${s.id}"
+                                            onclick="abrirModalVotoId(${s.id})">
+                                            🗳️ Votar Nesta Sugestão
+                                        </button>
+                                    `}
                                 </div>
                             ` : ''}
 
                             ${s.status === 'aprovada' ? `
+                                <div style="background: #e7f3ff; padding: 10px; border-radius: 8px; margin: 15px 0; font-size: 13px;">
+                                    👮 <strong>Aprovado por:</strong> Moderador Vengel
+                                </div>
                                 <div style="margin-top: 15px; padding: 15px; background: #d1e7dd; border-radius: 8px;">
                                     <strong>🎉 Sugestão aprovada com ${porcentagem}% dos votos!</strong>
-                                    <p style="margin-top: 5px; font-size: 14px;">Será implementada em breve.</p>
+                                    <p style="margin-top: 5px; font-size: 14px;">
+                                        ${s.moderador_implementador ?
+                                            `🛠️ <strong>${s.moderador_implementador}</strong> aceitou implementar esta sugestão!` :
+                                            'Aguardando moderador para implementação.'
+                                        }
+                                    </p>
+
+                                    ${usuarioAtual === 'Vengel' ? `
+                                        <div style="margin-top: 15px;">
+                                            ${!s.moderador_implementador ? `
+                                                <button onclick="aceitarImplementar(${s.id})" style="background: #4CAF50;">
+                                                    🛠️ Aceitar Implementar (Receber ${s.tokens_escrow} tokens)
+                                                </button>
+                                            ` : s.moderador_implementador === usuarioAtual ? `
+                                                <button onclick="marcarImplementada(${s.id})" style="background: #2196F3;">
+                                                    ✅ Marcar como Implementada
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : ''}
+
+                            ${s.status === 'em_implementacao' ? `
+                                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                                    <div style="margin-bottom: 10px; font-size: 13px; color: #856404;">
+                                        👮 <strong>Aprovado por:</strong> Moderador Vengel
+                                    </div>
+                                    <strong>🛠️ Em implementação por: ${s.moderador_implementador || 'Moderador'}</strong>
+                                    <p style="margin-top: 5px; font-size: 14px; color: #856404;">
+                                        💰 ${s.tokens_escrow} tokens reservados para o moderador ao concluir
+                                    </p>
+
+                                    ${s.moderador_implementador === usuarioAtual ? `
+                                        <div style="margin-top: 15px;">
+                                            <button onclick="marcarImplementada(${s.id})" style="background: #2196F3;">
+                                                ✅ Marcar como Implementada (Receber ${s.tokens_escrow} tokens)
+                                            </button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : ''}
+
+                            ${s.status === 'implementada' ? `
+                                <div style="background: #d1e7dd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                                    <strong>✅ Implementado com sucesso!</strong>
+                                    <p style="margin-top: 5px; font-size: 14px;">
+                                        👮 <strong>Por:</strong> ${s.moderador_implementador || 'Moderador'}
+                                    </p>
+                                    ${s.data_implementacao ? `
+                                        <p style="margin-top: 5px; font-size: 12px; color: #666;">
+                                            📅 ${formatarData(s.data_implementacao)}
+                                        </p>
+                                    ` : ''}
                                 </div>
                             ` : ''}
                         </div>
@@ -677,6 +772,27 @@
                 return;
             }
 
+            // Validar tamanhos mínimos
+            if (titulo.length < 5) {
+                alert('❌ O título precisa ter no mínimo 5 caracteres');
+                return;
+            }
+
+            if (descricao.length < 10) {
+                alert('❌ A descrição precisa ter no mínimo 10 caracteres');
+                return;
+            }
+
+            if (titulo.length > 200) {
+                alert('❌ O título não pode ter mais de 200 caracteres');
+                return;
+            }
+
+            if (descricao.length > 2000) {
+                alert('❌ A descrição não pode ter mais de 2000 caracteres');
+                return;
+            }
+
             if (!usuarioAtual || usuarioAtual === 'Anônimo') {
                 alert('Faça login na página principal para criar sugestões');
                 return;
@@ -694,16 +810,22 @@
                 });
 
                 if (response.ok) {
+                    const data = await response.json();
                     document.getElementById('sugestao-titulo').value = '';
                     document.getElementById('sugestao-descricao').value = '';
-                    alert('✅ Sugestão criada! Aguardando aprovação.');
+                    alert(`✅ Sugestão criada!
+
+5 tokens foram bloqueados em escrow.
+Aguardando aprovação de um moderador.`);
                     carregarSugestoes();
+                    atualizarSaldo();
                 } else {
-                    alert('Erro ao criar sugestão');
+                    const errorData = await response.json();
+                    alert(`❌ Erro ao criar sugestão: ${errorData.detail || 'Erro desconhecido'}`);
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                alert('Erro ao criar sugestão');
+                alert('❌ Erro ao criar sugestão: ' + error.message);
             }
         }
 
@@ -750,7 +872,72 @@
             }
         }
 
+        // Moderadores - Aceitar Implementar
+        async function aceitarImplementar(id) {
+            if (!confirm('Deseja aceitar implementar esta sugestão? Você receberá os tokens em escrow após concluir.')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/moderadores/aceitar-implementar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: id,
+                        moderador_nome: usuarioAtual
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert(data.mensagem);
+                    carregarSugestoes();
+                    atualizarSaldo();
+                } else {
+                    alert(data.detail || 'Erro ao aceitar implementar');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao aceitar implementar');
+            }
+        }
+
+        // Moderadores - Marcar como Implementada
+        async function marcarImplementada(id) {
+            if (!confirm('Marcar esta sugestão como implementada? Você receberá os tokens em escrow.')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/moderadores/marcar-implementada`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: id,
+                        moderador_nome: usuarioAtual
+                    })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    alert(data.mensagem);
+                    carregarSugestoes();
+                    atualizarSaldo();
+                } else {
+                    alert(data.detail || 'Erro ao marcar como implementada');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao marcar como implementada');
+            }
+        }
+
         // Votação
+        let sugestoesCache = [];
+
+        function abrirModalVotoId(id) {
+            const sugestao = sugestoesCache.find(s => s.id === id);
+            if (sugestao) {
+                abrirModalVoto(id, sugestao.titulo, sugestao.descricao);
+            }
+        }
+
         function abrirModalVoto(id, titulo, descricao) {
             sugestaoAtual = id;
             document.getElementById('modal-titulo').textContent = titulo;
@@ -807,10 +994,20 @@
         // Estatísticas
         async function carregarEstatisticas() {
             try {
-                const response = await fetch(`${API_URL}/dao/estatisticas`);
-                const stats = await response.json();
+                const [statsResponse, sugestoesResponse] = await Promise.all([
+                    fetch(`${API_URL}/dao/estatisticas`),
+                    fetch(`${API_URL}/dao/sugestoes`)
+                ]);
 
-                document.getElementById('estatisticas-dao').innerHTML = `
+                const stats = await statsResponse.json();
+                const todasSugestoes = await sugestoesResponse.json();
+
+                // Filtrar sugestões por status
+                const emImplementacao = todasSugestoes.filter(s => s.status === 'em_implementacao');
+                const implementadas = todasSugestoes.filter(s => s.status === 'implementada');
+                const aprovadas = todasSugestoes.filter(s => s.status === 'aprovada');
+
+                let html = `
                     <div class="card">
                         <h2>📊 Estatísticas da DAO</h2>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
@@ -841,9 +1038,109 @@
                         </div>
                     </div>
                 `;
+
+                // Seção: Em Implementação (Trabalhando)
+                if (emImplementacao.length > 0) {
+                    html += `
+                        <div class="card">
+                            <h3 style="color: #2196F3; margin-bottom: 15px;">🛠️ Trabalhando (${emImplementacao.length})</h3>
+                            <div id="sugestoes-em-implementacao">
+                    `;
+                    emImplementacao.forEach(s => {
+                        html += renderizarSugestaoEstatisticas(s);
+                    });
+                    html += `</div></div>`;
+                }
+
+                // Seção: Aprovadas (Aguardando Moderador)
+                if (aprovadas.length > 0) {
+                    html += `
+                        <div class="card">
+                            <h3 style="color: #4CAF50; margin-bottom: 15px;">✅ Aprovadas - Aguardando Moderador (${aprovadas.length})</h3>
+                            <div id="sugestoes-aprovadas">
+                    `;
+                    aprovadas.forEach(s => {
+                        html += renderizarSugestaoEstatisticas(s);
+                    });
+                    html += `</div></div>`;
+                }
+
+                // Seção: Implementadas (Concluídas)
+                if (implementadas.length > 0) {
+                    html += `
+                        <div class="card">
+                            <h3 style="color: #9C27B0; margin-bottom: 15px;">🎉 Concluídas (${implementadas.length})</h3>
+                            <div id="sugestoes-implementadas">
+                    `;
+                    implementadas.forEach(s => {
+                        html += renderizarSugestaoEstatisticas(s);
+                    });
+                    html += `</div></div>`;
+                }
+
+                document.getElementById('estatisticas-dao').innerHTML = html;
             } catch (error) {
                 console.error('Erro ao carregar estatísticas:', error);
             }
+        }
+
+        function renderizarSugestaoEstatisticas(s) {
+            const statusInfo = {
+                'aprovada': { cor: '#4CAF50', texto: '✅ Aprovada' },
+                'em_implementacao': { cor: '#2196F3', texto: '🛠️ Trabalhando' },
+                'implementada': { cor: '#9C27B0', texto: '🎉 Concluída' }
+            };
+
+            const info = statusInfo[s.status] || { cor: '#666', texto: s.status };
+
+            return `
+                <div class="suggestion-card" style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 16px; color: #333;">${s.titulo}</h4>
+                            <p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">
+                                por <strong>${s.usuario_nome}</strong> • ${formatarData(s.data_criacao)}
+                            </p>
+                        </div>
+                        <div style="background: ${info.cor}; color: white; padding: 6px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap;">
+                            ${info.texto}
+                        </div>
+                    </div>
+
+                    <p style="color: #555; margin: 10px 0; font-size: 14px;">${s.descricao}</p>
+
+                    ${s.tokens_escrow > 0 ? `
+                        <div style="display: inline-block; background: #fff3cd; color: #856404; padding: 6px 12px; border-radius: 8px; font-size: 13px; margin-top: 10px;">
+                            💰 ${s.tokens_escrow} tokens em escrow
+                        </div>
+                    ` : ''}
+
+                    ${s.moderador_implementador ? `
+                        <div style="background: #e7f3ff; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 13px;">
+                            👮 <strong>Moderador:</strong> ${s.moderador_implementador}
+                            ${s.status === 'implementada' ? ' • <span style="color: #4CAF50;">Implementação concluída</span>' : ' • <span style="color: #2196F3;">Trabalhando na implementação</span>'}
+                        </div>
+                    ` : ''}
+
+                    ${s.status === 'aprovada' && usuarioAtual === 'Vengel' ? `
+                        <div style="margin-top: 15px;">
+                            ${!s.moderador_implementador ? `
+                                <button onclick="aceitarImplementar(${s.id})" style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                                    🛠️ Aceitar Implementar (Receber ${s.tokens_escrow} tokens)
+                                </button>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+
+                    ${s.status === 'em_implementacao' && s.moderador_implementador === usuarioAtual ? `
+                        <div style="margin-top: 15px;">
+                            <button onclick="marcarImplementada(${s.id})" style="background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                                ✅ Marcar como Implementada (Receber ${s.tokens_escrow} tokens)
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
         }
 
         // Utilidades
@@ -852,8 +1149,9 @@
                 'pendente_aprovacao': '⏳ Pendente',
                 'em_votacao': '🗳️ Em Votação',
                 'aprovada': '✅ Aprovada',
+                'em_implementacao': '🛠️ Trabalhando',
+                'implementada': '🎉 Concluída',
                 'rejeitada': '❌ Rejeitada',
-                'implementada': '🎉 Implementada',
                 'cancelada': '🚫 Cancelada'
             };
             return traducoes[status] || status;

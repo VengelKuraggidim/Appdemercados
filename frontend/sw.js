@@ -1,5 +1,5 @@
-// Service Worker for PWA com Network-First Strategy
-const CACHE_VERSION = 'v2.0.01-' + Date.now(); // Versão única baseada em timestamp
+// Service Worker for PWA - MODO DESENVOLVIMENTO (Cache Desabilitado)
+const CACHE_VERSION = 'v2.0.11-no-cache'; // Versão sem cache agressivo
 const CACHE_NAME = `comparador-precos-${CACHE_VERSION}`;
 
 // Recursos estáticos que podem usar cache agressivo
@@ -95,18 +95,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // IMPORTANTE: Nunca cacheia páginas HTML e JS (sempre busca da rede)
-  if (url.pathname.includes('.html') || url.pathname === '/' || url.pathname.includes('.js')) {
-    event.respondWith(fetch(event.request));
+  // IMPORTANTE: Nunca cacheia páginas HTML, JS e CSS (sempre busca da rede com no-cache)
+  if (url.pathname.includes('.html') || url.pathname === '/' || url.pathname.includes('.js') || url.pathname.includes('.css')) {
+    event.respondWith(
+      fetch(event.request, {
+        cache: 'no-store'  // Força bypass de cache do navegador
+      })
+    );
     return;
   }
 
   // Determina a estratégia baseada no tipo de arquivo
   const isStaticAsset = /\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i.test(url.pathname);
-  const isCodeFile = /\.(jsx|ts|tsx|css)$/i.test(url.pathname);
+  const isCodeFile = /\.(jsx|ts|tsx)$/i.test(url.pathname);
 
   if (isCodeFile) {
-    // Network-First para arquivos de código: sempre busca atualização
+    // Network-First para arquivos de código compilados
     event.respondWith(CACHE_STRATEGIES.networkFirst(event.request));
   } else if (isStaticAsset) {
     // Cache-First para assets estáticos

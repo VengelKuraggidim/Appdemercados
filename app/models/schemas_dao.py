@@ -39,8 +39,9 @@ class StatusSugestaoEnum(str, Enum):
     PENDENTE_APROVACAO = "pendente_aprovacao"
     EM_VOTACAO = "em_votacao"
     APROVADA = "aprovada"
-    REJEITADA = "rejeitada"
+    EM_IMPLEMENTACAO = "em_implementacao"
     IMPLEMENTADA = "implementada"
+    REJEITADA = "rejeitada"
     CANCELADA = "cancelada"
 
 
@@ -63,10 +64,18 @@ class SugestaoResponse(BaseModel):
     total_tokens_votados: int
     porcentagem_aprovacao: float
     total_aprovadores: int
+    aprovadores: Optional[str] = None  # Lista de moderadores que aprovaram (separados por vírgula)
+    # Escrow de tokens
+    tokens_escrow: float = 0.0
+    moderador_implementador: Optional[str] = None
+    data_candidatura_moderador: Optional[datetime] = None
+    # Datas
     data_criacao: datetime
     data_aprovacao: Optional[datetime] = None
     data_finalizacao: Optional[datetime] = None
+    data_implementacao: Optional[datetime] = None
     motivo_rejeicao: Optional[str] = None
+    motivo_cancelamento: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -145,3 +154,50 @@ class EstatisticasDAO(BaseModel):
     sugestoes_implementadas: int
     total_usuarios_participantes: int
     total_tokens_votados: int
+
+
+# ============================================
+# MODERADORES (CONTRATO INTELIGENTE)
+# ============================================
+
+class ModeradorCreate(BaseModel):
+    """Schema para criar moderador"""
+    usuario_nome: str
+
+
+class ModeradorResponse(BaseModel):
+    """Schema para resposta de moderador"""
+    id: int
+    usuario_nome: str
+    ativo: bool
+    total_sugestoes_aprovadas: int
+    total_sugestoes_implementadas: int
+    total_sugestoes_canceladas: int
+    tokens_ganhos_total: float
+    reputacao_moderador: int
+    data_cadastro: datetime
+    ultima_atividade: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AceitarImplementarRequest(BaseModel):
+    """Schema para moderador aceitar implementar uma sugestão"""
+    sugestao_id: int
+    moderador_nome: str
+
+
+class MarcarImplementadaRequest(BaseModel):
+    """Schema para marcar sugestão como implementada"""
+    sugestao_id: int
+    moderador_nome: str
+    observacao: Optional[str] = None
+
+
+class CancelarImplementacaoRequest(BaseModel):
+    """Schema para cancelar implementação"""
+    sugestao_id: int
+    moderador_nome: str
+    motivo: str = Field(..., min_length=10, max_length=500)
+    devolver_tokens: bool = True  # Se True, devolve tokens ao criador

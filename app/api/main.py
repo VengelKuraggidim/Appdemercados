@@ -1,13 +1,15 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import func
 import os
 
-from app.models.database import get_db, init_db, Produto, Preco, Alerta, Carteira, Transacao, Comentario, Sugestao, Voto, StatusSugestao, ValidacaoPreco
+from app.models.database import get_db, init_db, Produto, Preco, Alerta, Carteira, Transacao, Comentario, Sugestao, Voto, StatusSugestao, ValidacaoPreco, Moderador
 from app.models.schemas import (
     BuscaRequest, ProdutoResponse, PrecoResponse,
     ComparacaoResponse, AlertaCreate, AlertaResponse
@@ -24,18 +26,22 @@ from app.models.schemas_dao import (
     SugestaoCreate, SugestaoResponse, SugestaoDetalhadaResponse,
     VotoCreate, VotoResponse, ResultadoVotacao,
     AprovarSugestaoRequest, RejeitarSugestaoRequest,
-    EstatisticasDAO
+    EstatisticasDAO,
+    ModeradorCreate, ModeradorResponse,
+    AceitarImplementarRequest, MarcarImplementadaRequest, CancelarImplementacaoRequest
 )
 from app.models.schemas_reputacao import (
     ValidarPrecoRequest, ValidacaoResponse, ReputacaoResponse,
     ContribuicaoParaValidar
 )
 from app.scrapers.scraper_manager import ScraperManager
+from app.scrapers.scraper_tempo_real import scraper_tempo_real
 from app.utils.comparador import Comparador
 from app.utils.geolocalizacao import (
     GeoLocalizacao, AnalisadorCustoBeneficio, ranquear_precos_por_custo_beneficio
 )
 from app.utils.crypto_manager import CryptoManager
+from app.utils.price_updater import price_updater
 
 app = FastAPI(
     title="Comparador de Preços",
@@ -52,12 +58,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Middleware para desabilitar cache durante desenvolvimento
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # Desabilitar cache para HTML, JS, CSS
+        if request.url.path.endswith(('.html', '.js', '.css')) or '/dao' in request.url.path:
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+
+        return response
+
+app.add_middleware(NoCacheMiddleware)
+
 # Initialize database
 init_db()
 
 # Initialize scrapers and comparador
 scraper_manager = ScraperManager()
 comparador = Comparador()
+
+# Iniciar agendador de atualização de preços (a cada 7 horas)
+price_updater.start(interval_hours=7)
 
 
 @app.get("/api")
@@ -133,7 +157,7 @@ async def buscar_produtos(
 
     # Add products from database
     for preco in precos_db:
-        produtos_encontrados.append({
+        produto_dict = {
             'nome': preco.produto.nome,
             'marca': preco.produto.marca,
             'preco': preco.preco,
@@ -142,59 +166,103 @@ async def buscar_produtos(
             'supermercado': preco.supermercado,
             'disponivel': preco.disponivel,
             'fonte': 'contribuicao' if preco.manual else 'scraper',
-            'data_coleta': preco.data_coleta.isoformat() if preco.data_coleta else None
-        })
+            'data_coleta': preco.data_coleta.isoformat() if preco.data_coleta else None,
+            'latitude': preco.latitude,
+            'longitude': preco.longitude,
+            'endereco': preco.endereco
+        }
+        produtos_encontrados.append(produto_dict)
 
-    # If no results from DB, try scraping (may not work due to Google blocking)
-    if not produtos_encontrados:
-        try:
-            produtos_scraped = scraper_manager.search_all(
-                termo=request.termo,
-                supermercados=request.supermercados
-            )
+    # ✨ NOVO: Scraping em tempo real quando usuário busca
+    # Tenta buscar preços REAIS daquele momento nos supermercados
+    scraped_count = 0
+    try:
+        print(f"\n🔍 Usuário buscou '{request.termo}' - Iniciando scraping em tempo real...")
 
-            # Save scraped products to database
-            for item in produtos_scraped:
-                try:
-                    # Check if product exists
-                    produto = db.query(Produto).filter(
-                        Produto.nome.ilike(f"%{item['nome'][:50]}%")
-                    ).first()
+        # Usar scraper otimizado para tempo real
+        produtos_scraped = scraper_tempo_real.buscar_todos(request.termo, max_por_fonte=10)
 
-                    if not produto:
-                        produto = Produto(
-                            nome=item['nome'],
-                            marca=item.get('marca'),
-                            categoria=None
-                        )
-                        db.add(produto)
-                        db.flush()
+        # Salvar novos produtos no banco
+        for item in produtos_scraped:
+            try:
+                # Verificar se produto existe
+                produto = db.query(Produto).filter(
+                    Produto.nome.ilike(f"%{item['nome'][:50]}%")
+                ).first()
 
-                    # Add price
-                    preco = Preco(
-                        produto_id=produto.id,
-                        supermercado=item['supermercado'],
-                        preco=item['preco'],
-                        em_promocao=item.get('em_promocao', False),
-                        url=item['url'],
-                        disponivel=item.get('disponivel', True),
-                        data_coleta=datetime.now()
+                if not produto:
+                    produto = Produto(
+                        nome=item['nome'],
+                        marca=item.get('marca'),
+                        categoria=None
                     )
-                    db.add(preco)
-                    produtos_encontrados.append(item)
+                    db.add(produto)
+                    db.flush()
 
-                except Exception as e:
-                    print(f"Error saving product: {e}")
-                    continue
+                # Adicionar preço
+                preco = Preco(
+                    produto_id=produto.id,
+                    supermercado=item['supermercado'],
+                    preco=item['preco'],
+                    preco_original=item.get('preco_original'),
+                    em_promocao=item.get('em_promocao', False),
+                    url=item.get('url', '#'),
+                    disponivel=item.get('disponivel', True),
+                    data_coleta=datetime.now(),
+                    manual=False  # Marcado como scraping automático
+                )
+                db.add(preco)
 
-            db.commit()
-        except Exception as e:
-            print(f"Scraping error: {e}")
+                # Adicionar aos resultados
+                item['fonte'] = 'scraper_tempo_real'
+                item['data_coleta'] = datetime.now().isoformat()
+                produtos_encontrados.append(item)
+                scraped_count += 1
+
+            except Exception as e:
+                print(f"   Erro ao salvar produto: {e}")
+                continue
+
+        db.commit()
+        print(f"   ✅ {scraped_count} novos preços salvos no banco")
+
+    except Exception as e:
+        print(f"   ⚠️  Erro no scraping em tempo real: {e}")
+        # Não é crítico - continuamos com dados do banco
+
+    # Ordenar por proximidade se localização fornecida
+    if request.latitude is not None and request.longitude is not None:
+        from app.utils.geolocalizacao import GeoLocalizacao
+
+        geo = GeoLocalizacao()
+
+        # Calcular distância para cada produto que tem localização
+        for produto in produtos_encontrados:
+            if produto.get('latitude') and produto.get('longitude'):
+                distancia = geo.calcular_distancia(
+                    request.latitude,
+                    request.longitude,
+                    produto['latitude'],
+                    produto['longitude']
+                )
+                produto['distancia_km'] = round(distancia, 2)
+            else:
+                # Produtos sem localização vão para o final
+                produto['distancia_km'] = 9999
+
+        # Ordenar por distância (mais próximos primeiro)
+        produtos_encontrados.sort(key=lambda x: x['distancia_km'])
+
+        # Remover produtos sem localização do resultado se houver produtos com localização
+        produtos_com_localizacao = [p for p in produtos_encontrados if p['distancia_km'] < 9999]
+        if produtos_com_localizacao:
+            produtos_encontrados = produtos_com_localizacao
 
     resposta = {
         "termo": request.termo,
         "total": len(produtos_encontrados),
-        "produtos": produtos_encontrados
+        "produtos": produtos_encontrados,
+        "ordenado_por_proximidade": request.latitude is not None and request.longitude is not None
     }
 
     if not produtos_encontrados:
@@ -1553,22 +1621,26 @@ async def criar_sugestao(
             }
         )
 
-    # Gastar tokens
+    # CONTRATO INTELIGENTE: Colocar 5 tokens em ESCROW
+    # Os tokens ficam bloqueados e só são liberados quando:
+    # 1. Sugestão for implementada → moderador recebe
+    # 2. Sugestão for cancelada → criador recebe de volta
     resultado = crypto.gastar_tokens(
         sugestao.usuario_nome,
-        custo=5,
-        descricao="Criação de sugestão na DAO"
+        quantidade=5,
+        descricao="Escrow: criação de sugestão na DAO (tokens bloqueados)"
     )
 
     if not resultado["sucesso"]:
         raise HTTPException(status_code=402, detail=resultado["mensagem"])
 
-    # Criar sugestão
+    # Criar sugestão com tokens em escrow
     nova_sugestao = Sugestao(
         usuario_nome=sugestao.usuario_nome,
         titulo=sugestao.titulo.strip(),
         descricao=sugestao.descricao.strip(),
-        status=StatusSugestao.PENDENTE_APROVACAO
+        status=StatusSugestao.PENDENTE_APROVACAO,
+        tokens_escrow=5.0  # Tokens bloqueados
     )
     db.add(nova_sugestao)
     db.commit()
@@ -1727,14 +1799,15 @@ async def votar_sugestao(
     if sugestao.status != StatusSugestao.EM_VOTACAO:
         raise HTTPException(status_code=400, detail="Esta sugestão não está em votação")
 
+    # Verificar se está votando na própria sugestão
+    if sugestao.usuario_nome == voto.usuario_nome:
+        raise HTTPException(status_code=400, detail="Você não pode votar na sua própria sugestão")
+
     # Verificar se usuário já votou
     voto_existente = db.query(Voto).filter(
         Voto.sugestao_id == voto.sugestao_id,
         Voto.usuario_nome == voto.usuario_nome
     ).first()
-
-    if voto_existente:
-        raise HTTPException(status_code=400, detail="Você já votou nesta sugestão")
 
     # Verificar saldo
     crypto = CryptoManager(db)
@@ -1746,36 +1819,67 @@ async def votar_sugestao(
             detail=f"Saldo insuficiente. Você tem {saldo_info['saldo']} tokens e precisa de {voto.tokens_usados}"
         )
 
-    # Calcular votos gerados (votação quadrática)
-    votos_gerados = int(math.sqrt(voto.tokens_usados))
-
     # Gastar tokens
     resultado_gasto = crypto.gastar_tokens(
         voto.usuario_nome,
-        custo=voto.tokens_usados,
+        quantidade=voto.tokens_usados,
         descricao=f"Voto na sugestão #{voto.sugestao_id}"
     )
 
     if not resultado_gasto["sucesso"]:
         raise HTTPException(status_code=402, detail=resultado_gasto["mensagem"])
 
-    # Registrar voto
-    novo_voto = Voto(
-        sugestao_id=voto.sugestao_id,
-        usuario_nome=voto.usuario_nome,
-        tokens_usados=voto.tokens_usados,
-        votos_gerados=votos_gerados,
-        voto_favor=voto.voto_favor
-    )
-    db.add(novo_voto)
+    if voto_existente:
+        # Usuário já votou - verificar se está mudando de direção
+        if voto_existente.voto_favor != voto.voto_favor:
+            raise HTTPException(status_code=400, detail="Você já votou em direção diferente. Não pode mudar o voto.")
 
-    # Atualizar contadores da sugestão
-    if voto.voto_favor:
-        sugestao.total_votos_favor += votos_gerados
+        # Atualizar voto existente (mesmo usuário pode votar múltiplas vezes na mesma direção)
+        # Remover votos anteriores dos contadores
+        if voto_existente.voto_favor:
+            sugestao.total_votos_favor -= voto_existente.votos_gerados
+        else:
+            sugestao.total_votos_contra -= voto_existente.votos_gerados
+
+        sugestao.total_tokens_votados -= voto_existente.tokens_usados
+
+        # Atualizar o voto com novos tokens
+        voto_existente.tokens_usados += voto.tokens_usados
+        voto_existente.votos_gerados = int(math.sqrt(voto_existente.tokens_usados))
+        voto_existente.data_voto = datetime.now()
+
+        # Adicionar novos votos aos contadores
+        if voto_existente.voto_favor:
+            sugestao.total_votos_favor += voto_existente.votos_gerados
+        else:
+            sugestao.total_votos_contra += voto_existente.votos_gerados
+
+        sugestao.total_tokens_votados += voto_existente.tokens_usados
+        votos_gerados = voto_existente.votos_gerados
+        tokens_totais = voto_existente.tokens_usados
+
     else:
-        sugestao.total_votos_contra += votos_gerados
+        # Calcular votos gerados (votação quadrática)
+        votos_gerados = int(math.sqrt(voto.tokens_usados))
 
-    sugestao.total_tokens_votados += voto.tokens_usados
+        # Registrar novo voto
+        novo_voto = Voto(
+            sugestao_id=voto.sugestao_id,
+            usuario_nome=voto.usuario_nome,
+            tokens_usados=voto.tokens_usados,
+            votos_gerados=votos_gerados,
+            voto_favor=voto.voto_favor
+        )
+        db.add(novo_voto)
+
+        # Atualizar contadores da sugestão
+        if voto.voto_favor:
+            sugestao.total_votos_favor += votos_gerados
+        else:
+            sugestao.total_votos_contra += votos_gerados
+
+        sugestao.total_tokens_votados += voto.tokens_usados
+        tokens_totais = voto.tokens_usados
 
     # Calcular porcentagem
     total_votos = sugestao.total_votos_favor + sugestao.total_votos_contra
@@ -1784,10 +1888,30 @@ async def votar_sugestao(
     else:
         sugestao.porcentagem_aprovacao = 0
 
-    # Verificar se atingiu 60% de aprovação (com mínimo de 10 votos)
-    if total_votos >= 10 and sugestao.porcentagem_aprovacao >= 60:
+    # Contar VOTOS GERADOS (sistema quadrático) e PESSOAS que votaram
+    from app.models.database import Carteira
+    votos_da_sugestao = db.query(Voto).filter(Voto.sugestao_id == sugestao.id).all()
+
+    # Total de pessoas que votaram (cada pessoa só pode votar uma vez)
+    pessoas_votaram = len(votos_da_sugestao)
+
+    # Votos gerados já estão em sugestao.total_votos_favor e sugestao.total_votos_contra
+    # que foram atualizados acima com votos_gerados
+
+    # Contar total de usuários que PODEM votar (todos exceto o criador)
+    total_usuarios = db.query(Carteira).count()
+    usuarios_podem_votar = total_usuarios - 1  # Excluir o criador da sugestão
+
+    # Calcular threshold: 60% dos usuários que podem votar
+    # Se cada um votar com 1 token mínimo = 1 voto cada
+    import math
+    minimo_votos_para_decidir = math.ceil(usuarios_podem_votar * 0.6)
+
+    # Verificar se atingiu 60% dos votos possíveis A FAVOR
+    # Considerando os votos quadráticos gerados
+    if sugestao.total_votos_favor >= minimo_votos_para_decidir:
         sugestao.status = StatusSugestao.APROVADA
-        sugestao.data_finalizacao = datetime.now()
+        sugestao.data_aprovacao = datetime.now()
 
         # Dar reputação ao criador da sugestão aprovada
         from app.utils.crypto_manager import ReputacaoManager
@@ -1797,6 +1921,21 @@ async def votar_sugestao(
             ReputacaoManager.SUGESTAO_APROVADA,
             f"Sugestão #{sugestao.id} aprovada pela comunidade"
         )
+
+    # Verificar se atingiu 60% dos votos possíveis CONTRA
+    # Considerando os votos quadráticos gerados
+    elif sugestao.total_votos_contra >= minimo_votos_para_decidir:
+        sugestao.status = StatusSugestao.REJEITADA
+        sugestao.data_finalizacao = datetime.now()
+
+        # Devolver tokens do escrow ao criador (sugestão rejeitada)
+        if sugestao.tokens_escrow > 0:
+            crypto.minerar_tokens(
+                usuario_nome=sugestao.usuario_nome,
+                quantidade=sugestao.tokens_escrow,
+                descricao=f"Devolução de escrow - sugestão #{sugestao.id} rejeitada pela comunidade"
+            )
+            sugestao.tokens_escrow = 0.0
 
     # Dar reputação por participar da votação
     from app.utils.crypto_manager import ReputacaoManager
@@ -1812,7 +1951,7 @@ async def votar_sugestao(
 
     return ResultadoVotacao(
         sucesso=True,
-        mensagem=f"Voto registrado! {votos_gerados} voto(s) {'a favor' if voto.voto_favor else 'contra'} (+{ReputacaoManager.VOTO_SUGESTAO} reputação)",
+        mensagem=f"Voto registrado! Total: {votos_gerados} voto(s) {'a favor' if voto.voto_favor else 'contra'} usando {tokens_totais} token(s) (+{ReputacaoManager.VOTO_SUGESTAO} reputação)",
         tokens_gastos=voto.tokens_usados,
         votos_gerados=votos_gerados,
         saldo_restante=resultado_gasto["saldo_atual"],
@@ -2166,6 +2305,387 @@ async def listar_validacoes_recebidas(
     ).order_by(ValidacaoPreco.data_validacao.desc()).limit(limite).all()
 
     return validacoes
+
+
+# ============================================
+# ENDPOINTS DE MODERADORES (CONTRATO INTELIGENTE)
+# ============================================
+
+@app.post("/api/moderadores/adicionar", response_model=ModeradorResponse)
+async def adicionar_moderador(
+    moderador_data: ModeradorCreate,
+    admin_usuario: str = "Vengel",
+    db: Session = Depends(get_db)
+):
+    """
+    Adiciona um novo moderador (apenas admin pode fazer isso)
+    """
+    # Verificação de permissão
+    if admin_usuario != "Vengel":
+        raise HTTPException(status_code=403, detail="Apenas o admin pode adicionar moderadores")
+
+    # Verificar se já existe
+    moderador_existente = db.query(Moderador).filter(
+        Moderador.usuario_nome == moderador_data.usuario_nome
+    ).first()
+
+    if moderador_existente:
+        raise HTTPException(status_code=400, detail="Este usuário já é moderador")
+
+    # Criar moderador
+    novo_moderador = Moderador(
+        usuario_nome=moderador_data.usuario_nome,
+        ativo=True,
+        reputacao_moderador=100
+    )
+
+    db.add(novo_moderador)
+    db.commit()
+    db.refresh(novo_moderador)
+
+    return novo_moderador
+
+
+@app.get("/api/moderadores", response_model=List[ModeradorResponse])
+async def listar_moderadores(
+    apenas_ativos: bool = True,
+    db: Session = Depends(get_db)
+):
+    """
+    Lista todos os moderadores
+    """
+    query = db.query(Moderador)
+
+    if apenas_ativos:
+        query = query.filter(Moderador.ativo == True)
+
+    moderadores = query.order_by(Moderador.total_sugestoes_implementadas.desc()).all()
+
+    return moderadores
+
+
+@app.get("/api/moderadores/{usuario_nome}", response_model=ModeradorResponse)
+async def obter_moderador(
+    usuario_nome: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtém informações de um moderador específico
+    """
+    moderador = db.query(Moderador).filter(
+        Moderador.usuario_nome == usuario_nome
+    ).first()
+
+    if not moderador:
+        raise HTTPException(status_code=404, detail="Moderador não encontrado")
+
+    return moderador
+
+
+@app.post("/api/moderadores/aceitar-implementar")
+async def aceitar_implementar_sugestao(
+    request: AceitarImplementarRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Moderador aceita implementar uma sugestão aprovada
+
+    CONTRATO INTELIGENTE:
+    - Tokens ficam reservados para este moderador
+    - Status muda para EM_IMPLEMENTACAO
+    - Moderador recebe tokens APENAS se marcar como IMPLEMENTADA
+    """
+    # Verificar se é moderador
+    moderador = db.query(Moderador).filter(
+        Moderador.usuario_nome == request.moderador_nome,
+        Moderador.ativo == True
+    ).first()
+
+    if not moderador:
+        raise HTTPException(
+            status_code=403,
+            detail="Você não é um moderador autorizado"
+        )
+
+    # Buscar sugestão
+    sugestao = db.query(Sugestao).filter(Sugestao.id == request.sugestao_id).first()
+
+    if not sugestao:
+        raise HTTPException(status_code=404, detail="Sugestão não encontrada")
+
+    # Verificar se está aprovada
+    if sugestao.status != StatusSugestao.APROVADA:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sugestão não está aprovada. Status atual: {sugestao.status.value}"
+        )
+
+    # Verificar se já tem moderador
+    if sugestao.moderador_implementador:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sugestão já está sendo implementada por {sugestao.moderador_implementador}"
+        )
+
+    # Aceitar implementação
+    sugestao.status = StatusSugestao.EM_IMPLEMENTACAO
+    sugestao.moderador_implementador = request.moderador_nome
+    sugestao.data_candidatura_moderador = datetime.now()
+
+    # Atualizar estatísticas do moderador
+    moderador.ultima_atividade = datetime.now()
+
+    db.commit()
+    db.refresh(sugestao)
+
+    return {
+        "sucesso": True,
+        "mensagem": f"✅ Você aceitou implementar esta sugestão! Tokens em escrow: {sugestao.tokens_escrow}",
+        "sugestao": sugestao,
+        "tokens_escrow": sugestao.tokens_escrow,
+        "aviso": "Você receberá os tokens ao marcar como implementada!"
+    }
+
+
+@app.post("/api/moderadores/marcar-implementada")
+async def marcar_sugestao_como_implementada(
+    request: MarcarImplementadaRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Moderador marca sugestão como implementada
+
+    CONTRATO INTELIGENTE:
+    - Libera tokens do escrow para o moderador
+    - Atualiza estatísticas
+    - Aumenta reputação do moderador
+    """
+    # Verificar se é moderador
+    moderador = db.query(Moderador).filter(
+        Moderador.usuario_nome == request.moderador_nome,
+        Moderador.ativo == True
+    ).first()
+
+    if not moderador:
+        raise HTTPException(status_code=403, detail="Você não é um moderador autorizado")
+
+    # Buscar sugestão
+    sugestao = db.query(Sugestao).filter(Sugestao.id == request.sugestao_id).first()
+
+    if not sugestao:
+        raise HTTPException(status_code=404, detail="Sugestão não encontrada")
+
+    # Verificar se está em implementação
+    if sugestao.status != StatusSugestao.EM_IMPLEMENTACAO:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sugestão não está em implementação. Status: {sugestao.status.value}"
+        )
+
+    # Verificar se é o moderador responsável
+    if sugestao.moderador_implementador != request.moderador_nome:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Apenas {sugestao.moderador_implementador} pode marcar como implementada"
+        )
+
+    # LIBERAÇÃO DO ESCROW: Transferir tokens para o moderador
+    tokens_escrow = sugestao.tokens_escrow
+
+    crypto = CryptoManager(db)
+    crypto.minerar_tokens(
+        usuario_nome=request.moderador_nome,
+        quantidade=tokens_escrow,
+        descricao=f"Recompensa por implementar sugestão #{sugestao.id}"
+    )
+
+    # Atualizar sugestão
+    sugestao.status = StatusSugestao.IMPLEMENTADA
+    sugestao.data_implementacao = datetime.now()
+    sugestao.data_finalizacao = datetime.now()
+    sugestao.tokens_escrow = 0.0  # Tokens foram liberados
+
+    # Atualizar estatísticas do moderador
+    moderador.total_sugestoes_implementadas += 1
+    moderador.tokens_ganhos_total += tokens_escrow
+    moderador.reputacao_moderador = min(200, moderador.reputacao_moderador + 10)
+    moderador.ultima_atividade = datetime.now()
+
+    db.commit()
+    db.refresh(sugestao)
+    db.refresh(moderador)
+
+    return {
+        "sucesso": True,
+        "mensagem": f"🎉 Sugestão marcada como implementada! Você recebeu {tokens_escrow} tokens!",
+        "tokens_recebidos": tokens_escrow,
+        "reputacao_moderador": moderador.reputacao_moderador,
+        "total_implementadas": moderador.total_sugestoes_implementadas,
+        "sugestao": sugestao
+    }
+
+
+@app.post("/api/moderadores/cancelar-implementacao")
+async def cancelar_implementacao(
+    request: CancelarImplementacaoRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Moderador cancela implementação de uma sugestão
+
+    CONTRATO INTELIGENTE:
+    - Se devolver_tokens=True: tokens voltam para o criador
+    - Se devolver_tokens=False: tokens ficam retidos (punição)
+    - Reduz reputação do moderador
+    """
+    # Verificar se é moderador
+    moderador = db.query(Moderador).filter(
+        Moderador.usuario_nome == request.moderador_nome,
+        Moderador.ativo == True
+    ).first()
+
+    if not moderador:
+        raise HTTPException(status_code=403, detail="Você não é um moderador autorizado")
+
+    # Buscar sugestão
+    sugestao = db.query(Sugestao).filter(Sugestao.id == request.sugestao_id).first()
+
+    if not sugestao:
+        raise HTTPException(status_code=404, detail="Sugestão não encontrada")
+
+    # Verificar se está em implementação
+    if sugestao.status != StatusSugestao.EM_IMPLEMENTACAO:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sugestão não está em implementação. Status: {sugestao.status.value}"
+        )
+
+    # Verificar se é o moderador responsável ou admin
+    if sugestao.moderador_implementador != request.moderador_nome and request.moderador_nome != "Vengel":
+        raise HTTPException(
+            status_code=403,
+            detail=f"Apenas {sugestao.moderador_implementador} ou admin pode cancelar"
+        )
+
+    tokens_escrow = sugestao.tokens_escrow
+
+    # Devolver tokens ao criador?
+    if request.devolver_tokens:
+        crypto = CryptoManager(db)
+        crypto.minerar_tokens(
+            usuario_nome=sugestao.usuario_nome,
+            valor=tokens_escrow,
+            descricao=f"Devolução: sugestão #{sugestao.id} cancelada"
+        )
+        mensagem_tokens = f"Tokens devolvidos para {sugestao.usuario_nome}"
+    else:
+        mensagem_tokens = "Tokens retidos (não devolvidos)"
+
+    # Atualizar sugestão
+    sugestao.status = StatusSugestao.CANCELADA
+    sugestao.motivo_cancelamento = request.motivo
+    sugestao.data_finalizacao = datetime.now()
+    sugestao.tokens_escrow = 0.0  # Tokens foram processados
+
+    # Penalizar moderador
+    moderador.total_sugestoes_canceladas += 1
+    moderador.reputacao_moderador = max(0, moderador.reputacao_moderador - 5)
+    moderador.ultima_atividade = datetime.now()
+
+    db.commit()
+    db.refresh(sugestao)
+    db.refresh(moderador)
+
+    return {
+        "sucesso": True,
+        "mensagem": f"Implementação cancelada. {mensagem_tokens}",
+        "tokens_devolvidos": tokens_escrow if request.devolver_tokens else 0,
+        "reputacao_moderador": moderador.reputacao_moderador,
+        "sugestao": sugestao
+    }
+
+
+@app.get("/api/promocoes/{supermercado}")
+async def buscar_promocoes(
+    supermercado: str,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Busca produtos em promoção de um supermercado específico
+    Pode ordenar por proximidade se latitude/longitude fornecidos
+    """
+    # Buscar preços em promoção dos últimos 30 dias
+    data_limite = datetime.now() - timedelta(days=30)
+
+    precos_promocao = db.query(Preco).join(Produto).filter(
+        Preco.supermercado.ilike(f"%{supermercado}%"),
+        Preco.em_promocao == True,
+        Preco.disponivel == True,
+        Preco.data_coleta >= data_limite
+    ).all()
+
+    if not precos_promocao:
+        return {
+            "supermercado": supermercado,
+            "total": 0,
+            "promocoes": [],
+            "message": f"Nenhuma promoção encontrada para {supermercado}"
+        }
+
+    promocoes = []
+    for preco in precos_promocao:
+        promo_dict = {
+            'id': preco.id,
+            'nome': preco.produto.nome,
+            'marca': preco.produto.marca,
+            'preco': preco.preco,
+            'preco_original': preco.preco_original,
+            'desconto_percentual': round(((preco.preco_original - preco.preco) / preco.preco_original * 100), 1) if preco.preco_original and preco.preco_original > preco.preco else 0,
+            'economia': round(preco.preco_original - preco.preco, 2) if preco.preco_original else 0,
+            'supermercado': preco.supermercado,
+            'url': preco.url or '#',
+            'data_coleta': preco.data_coleta.isoformat() if preco.data_coleta else None,
+            'latitude': preco.latitude,
+            'longitude': preco.longitude,
+            'endereco': preco.endereco
+        }
+        promocoes.append(promo_dict)
+
+    # Ordenar por proximidade se localização fornecida
+    if latitude is not None and longitude is not None:
+        from app.utils.geolocalizacao import GeoLocalizacao
+
+        geo = GeoLocalizacao()
+
+        for promo in promocoes:
+            if promo.get('latitude') and promo.get('longitude'):
+                distancia = geo.calcular_distancia(
+                    latitude,
+                    longitude,
+                    promo['latitude'],
+                    promo['longitude']
+                )
+                promo['distancia_km'] = round(distancia, 2)
+            else:
+                promo['distancia_km'] = 9999
+
+        # Ordenar por distância
+        promocoes.sort(key=lambda x: x['distancia_km'])
+
+        # Remover produtos sem localização
+        promocoes = [p for p in promocoes if p['distancia_km'] < 9999]
+    else:
+        # Ordenar por maior desconto
+        promocoes.sort(key=lambda x: x['desconto_percentual'], reverse=True)
+
+    return {
+        "supermercado": supermercado,
+        "total": len(promocoes),
+        "promocoes": promocoes,
+        "ordenado_por_proximidade": latitude is not None and longitude is not None
+    }
 
 
 # Mount static files AFTER all API routes

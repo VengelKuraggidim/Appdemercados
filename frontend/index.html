@@ -720,6 +720,35 @@
             }
         }
 
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
         /* Avatar com borda colorida */
         .avatar {
             width: 48px;
@@ -1184,8 +1213,10 @@
                             <button onclick="filtrarSugestoesDAO('')" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Todas</button>
                             <button onclick="filtrarSugestoesDAO('pendente_aprovacao')" style="padding: 8px 16px; background: #fff3cd; color: #856404; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Pendentes</button>
                             <button onclick="filtrarSugestoesDAO('em_votacao')" style="padding: 8px 16px; background: #cfe2ff; color: #084298; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Em Votação</button>
-                            <button onclick="filtrarSugestoesDAO('aprovada')" style="padding: 8px 16px; background: #d1e7dd; color: #0f5132; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Aprovadas</button>
                         </div>
+                        <p style="margin-top: 10px; font-size: 13px; color: #666;">
+                            ℹ️ Sugestões aprovadas e implementadas estão na aba <strong>📊 Estatísticas</strong>
+                        </p>
                     </div>
 
                     <div id="daoListaSugestoes"></div>
@@ -1208,7 +1239,7 @@
         </div>
     </div>
 
-    <script src="/src/app.js?v=20250107b"></script>
+    <script src="/src/app.js?v=20250108c"></script>
     <script>
         // Não redeclarar API_URL - já existe no app.js
         const API_URL_AUTH = 'http://localhost:8000/api';
@@ -1267,12 +1298,12 @@
             const senha = document.getElementById('senhaLogin').value;
 
             if (cpf.length !== 11) {
-                alert('Digite um CPF válido');
+                mostrarToastInfo('Digite um CPF válido (11 dígitos)', '📱');
                 return;
             }
 
             if (!senha || senha.length < 4) {
-                alert('Digite sua senha');
+                mostrarToastInfo('Digite sua senha (mínimo 4 caracteres)', '🔒');
                 return;
             }
 
@@ -1291,12 +1322,13 @@
                     localStorage.setItem('cpf', cpf);
                     mostrarUsuarioLogado();
                     await atualizarCarteira();
+                    mostrarToastSucesso(`Bem-vindo(a), ${data.usuario_nome}!`, '👋');
                 } else {
-                    alert(data.mensagem);
+                    mostrarToastErro(data.mensagem);
                 }
             } catch (error) {
                 console.error('Erro ao fazer login:', error);
-                alert('Erro ao conectar com o servidor');
+                mostrarToastErro('Erro ao conectar com o servidor');
             }
         }
 
@@ -1307,17 +1339,17 @@
             const senha = document.getElementById('senhaRegistro').value;
 
             if (!nome || nome.length < 3) {
-                alert('Digite um nome válido (mínimo 3 caracteres)');
+                mostrarToastInfo('Digite um nome válido (mínimo 3 caracteres)', '👤');
                 return;
             }
 
             if (cpf.length !== 11) {
-                alert('Digite um CPF válido');
+                mostrarToastInfo('Digite um CPF válido (11 dígitos)', '📱');
                 return;
             }
 
             if (!senha || senha.length < 4) {
-                alert('Senha deve ter pelo menos 4 caracteres');
+                mostrarToastInfo('Senha deve ter pelo menos 4 caracteres', '🔒');
                 return;
             }
 
@@ -1330,18 +1362,18 @@
                 const data = await response.json();
 
                 if (data.sucesso) {
-                    alert('✅ Conta criada com sucesso! Você ganhou 5 tokens de bônus!');
+                    mostrarToastSucesso('Conta criada com sucesso!<br><br>🎁 Você ganhou 5 tokens de bônus!', '🎉');
                     usuarioAtual = data.usuario_nome;
                     localStorage.setItem('usuario_nome', data.usuario_nome);
                     localStorage.setItem('cpf', cpf);
                     mostrarUsuarioLogado();
                     await atualizarCarteira();
                 } else {
-                    alert(data.mensagem);
+                    mostrarToastErro(data.mensagem);
                 }
             } catch (error) {
                 console.error('Erro ao registrar:', error);
-                alert('Erro ao conectar com o servidor');
+                mostrarToastErro('Erro ao conectar com o servidor');
             }
         }
 
@@ -1390,7 +1422,7 @@
         // Mostrar carteira (nova view)
         async function mostrarCarteira() {
             if (!usuarioAtual) {
-                alert('Faça login para acessar sua carteira');
+                mostrarToastInfo('Faça login para acessar sua carteira', '🔒');
                 return;
             }
 
@@ -1556,7 +1588,7 @@
                 }
             } catch (error) {
                 console.error('Erro ao carregar dados da carteira:', error);
-                alert('Erro ao carregar dados da carteira');
+                mostrarToastErro('Erro ao carregar dados da carteira');
             }
         }
 
@@ -2177,7 +2209,7 @@
         // Mostrar/Esconder views
         function mostrarDAO() {
             if (!usuarioAtual) {
-                alert('Faça login para acessar a DAO');
+                mostrarToastInfo('Faça login para acessar a DAO', '🔒');
                 return;
             }
 
@@ -2233,6 +2265,204 @@
             if (reputacao >= 70) return { cor: '#FF9800', badge: '⚠️ Regular' };
             if (reputacao >= 40) return { cor: '#FF5722', badge: '⚠️ Atenção' };
             return { cor: '#F44336', badge: '❌ Crítico' };
+        }
+
+        // Cache de reputações de moderadores
+        const cacheReputacoesModerador = {};
+
+        // Helper para obter info do moderador que aprovou
+        function obterModeradorAprovador(aprovadores) {
+            if (!aprovadores) return null;
+            const lista = aprovadores.split(',').map(m => m.trim()).filter(m => m);
+            if (lista.length === 0) return null;
+            // Retornar o último moderador (quem aprovou por último)
+            return lista[lista.length - 1];
+        }
+
+        // Buscar reputação de um moderador
+        async function buscarReputacaoModerador(usuario_nome) {
+            // Verificar cache
+            if (cacheReputacoesModerador[usuario_nome]) {
+                return cacheReputacoesModerador[usuario_nome];
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/carteira/${usuario_nome}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const reputacao = data.reputacao || 100;
+                    cacheReputacoesModerador[usuario_nome] = reputacao;
+                    return reputacao;
+                }
+            } catch (error) {
+                console.error('Erro ao buscar reputação do moderador:', error);
+            }
+
+            return 100; // Default
+        }
+
+        // Formatar display do moderador com reputação
+        async function formatarModeradorAprovador(aprovadores) {
+            const moderador = obterModeradorAprovador(aprovadores);
+            if (!moderador) return 'Moderador';
+
+            const reputacao = await buscarReputacaoModerador(moderador);
+            return `${moderador} • Reputação: ⭐ ${reputacao}`;
+        }
+
+        // Toggle informações do moderador que aprovou
+        function toggleInfoModerador(sugestaoId) {
+            const elemento = document.getElementById(`infoModerador${sugestaoId}`);
+            if (elemento) {
+                if (elemento.style.display === 'none') {
+                    elemento.style.display = 'block';
+                } else {
+                    elemento.style.display = 'none';
+                }
+            }
+        }
+
+        // Rastreamento de votos do usuário por sugestão
+        const votosUsuarioPorSugestao = {};
+
+        // Mostrar toast de votação bem bonito
+        function mostrarToastVotacao(aFavor, totalVotos, tokensUsados, tokensTotal) {
+            // Criar o toast
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${aFavor ? 'linear-gradient(135deg, #4CAF50, #45a049)' : 'linear-gradient(135deg, #f44336, #d32f2f)'};
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 300px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            const emoji = aFavor ? '👍' : '👎';
+            const direcao = aFavor ? 'A FAVOR' : 'CONTRA';
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">${emoji}</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">✅ Voto Registrado!</div>
+                        <div style="font-size: 14px; opacity: 0.95;">
+                            Votou <strong>${direcao}</strong>
+                        </div>
+                        <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">
+                            ${tokensUsados} token${tokensUsados > 1 ? 's' : ''} usados neste voto<br>
+                            Total: ${totalVotos} voto${totalVotos > 1 ? 's' : ''} • ${tokensTotal} tokens
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Adicionar animação CSS
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideOut {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
+            document.body.appendChild(toast);
+
+            // Remover após 4 segundos com animação
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 4000);
+        }
+
+        // Função de votação rápida (cada clique = mais votos seguindo fórmula quadrática)
+        async function votarRapidoDAO(sugestaoId, aFavor) {
+            // Inicializar contador se não existir
+            if (!votosUsuarioPorSugestao[sugestaoId]) {
+                votosUsuarioPorSugestao[sugestaoId] = {
+                    votosAtuais: 0,
+                    tokensAtuais: 0,
+                    ultimaDirecao: null
+                };
+            }
+
+            const info = votosUsuarioPorSugestao[sugestaoId];
+
+            // Se mudar de direção (favor <-> contra), resetar contador (backend vai bloquear)
+            if (info.ultimaDirecao !== null && info.ultimaDirecao !== aFavor) {
+                info.votosAtuais = 0;
+                info.tokensAtuais = 0;
+                info.ultimaDirecao = null;
+            }
+
+            // Calcular próximo voto e tokens necessários
+            const proximoVoto = info.votosAtuais + 1;
+            const tokensNecessarios = proximoVoto * proximoVoto; // n²
+            const tokensAdicionais = tokensNecessarios - info.tokensAtuais;
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/votar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: sugestaoId,
+                        usuario_nome: usuarioAtual,
+                        tokens_usados: tokensAdicionais,
+                        voto_favor: aFavor
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Atualizar contadores
+                    info.votosAtuais = proximoVoto;
+                    info.tokensAtuais = tokensNecessarios;
+                    info.ultimaDirecao = aFavor;
+
+                    // Mostrar info do voto
+                    const infoVoto = document.getElementById(`infoVoto${sugestaoId}`);
+                    infoVoto.style.display = 'block';
+                    document.getElementById(`votosUsuario${sugestaoId}`).textContent = proximoVoto;
+                    document.getElementById(`tokensUsuario${sugestaoId}`).textContent = tokensNecessarios;
+
+                    // Mostrar toast de sucesso
+                    mostrarToastVotacao(aFavor, proximoVoto, tokensAdicionais, tokensNecessarios);
+
+                    // Recarregar sugestões
+                    carregarSugestoesDAO();
+                } else {
+                    alert(data.detail || 'Erro ao votar');
+                }
+            } catch (error) {
+                console.error('Erro ao votar:', error);
+                alert('Erro ao processar voto');
+            }
         }
 
         async function carregarComentariosDAO() {
@@ -2322,7 +2552,7 @@
             const texto = document.getElementById('daoComentarioTexto').value.trim();
 
             if (!texto) {
-                alert('Digite um comentário');
+                mostrarToastInfo('Digite seu comentário antes de enviar', '💬');
                 return;
             }
 
@@ -2339,11 +2569,13 @@
                 if (response.ok) {
                     document.getElementById('daoComentarioTexto').value = '';
                     carregarComentariosDAO();
+                    mostrarToastSucesso('Comentário enviado!', '💬');
                 } else {
-                    console.error('Erro ao enviar comentário');
+                    mostrarToastErro('Erro ao enviar comentário');
                 }
             } catch (error) {
                 console.error('Erro:', error);
+                mostrarToastErro('Erro ao enviar comentário');
             }
         }
 
@@ -2352,7 +2584,29 @@
             try {
                 const url = status ? `${API_URL_AUTH}/dao/sugestoes?status=${status}` : `${API_URL_AUTH}/dao/sugestoes`;
                 const response = await fetch(url);
-                const sugestoes = await response.json();
+                let sugestoes = await response.json();
+
+                // Filtrar para excluir sugestões aprovadas, em implementação, implementadas e rejeitadas
+                // (aprovadas/implementadas aparecem na aba Estatísticas, rejeitadas são descartadas)
+                sugestoes = sugestoes.filter(s =>
+                    s.status !== 'aprovada' &&
+                    s.status !== 'em_implementacao' &&
+                    s.status !== 'implementada' &&
+                    s.status !== 'rejeitada'
+                );
+
+                // Pre-fetch reputações dos moderadores que aprovaram sugestões em votação
+                const moderadoresSet = new Set();
+                sugestoes.forEach(s => {
+                    if (s.status === 'em_votacao' && s.aprovadores) {
+                        const moderador = obterModeradorAprovador(s.aprovadores);
+                        if (moderador) moderadoresSet.add(moderador);
+                    }
+                });
+
+                // Buscar reputações em paralelo
+                const moderadores = Array.from(moderadoresSet);
+                await Promise.all(moderadores.map(m => buscarReputacaoModerador(m)));
 
                 const lista = document.getElementById('daoListaSugestoes');
 
@@ -2365,6 +2619,10 @@
                     const totalVotos = s.total_votos_favor + s.total_votos_contra;
                     const porcentagem = s.porcentagem_aprovacao.toFixed(1);
 
+                    // Obter informações do moderador (já em cache)
+                    const moderador = obterModeradorAprovador(s.aprovadores);
+                    const moderadorReputacao = moderador ? cacheReputacoesModerador[moderador] || 100 : 100;
+
                     return `
                         <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
@@ -2372,11 +2630,24 @@
                                     <span style="font-weight: 600; color: var(--primary-color);">${s.usuario_nome}</span>
                                     <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-left: 10px; ${getStatusStyle(s.status)}">${traduzirStatusDAO(s.status)}</span>
                                 </div>
-                                <span style="color: #999; font-size: 12px;">${formatarDataDAO(s.data_criacao)}</span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    ${s.status === 'em_votacao' && moderador ? `
+                                        <button onclick="toggleInfoModerador(${s.id})" style="background: #e7f3ff; border: 1px solid #2196F3; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;" title="Ver moderador que aprovou">
+                                            👮
+                                        </button>
+                                    ` : ''}
+                                    <span style="color: #999; font-size: 12px;">${formatarDataDAO(s.data_criacao)}</span>
+                                </div>
                             </div>
 
                             <h3 style="margin-bottom: 10px;">${s.titulo}</h3>
                             <p style="color: #666;">${s.descricao}</p>
+
+                            ${s.status === 'em_votacao' && moderador ? `
+                                <div id="infoModerador${s.id}" style="display: none; background: #e7f3ff; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px;">
+                                    👮 <strong>Aprovado para votação por:</strong> ${moderador} • Reputação: ⭐ ${moderadorReputacao}
+                                </div>
+                            ` : ''}
 
                             ${s.status === 'pendente_aprovacao' && usuarioAtual === 'Vengel' ? `
                                 <div style="margin-top: 15px; display: flex; gap: 10px;">
@@ -2412,11 +2683,19 @@
                                         ${totalVotos} votos totais | ${s.total_tokens_votados} tokens usados
                                     </p>
 
-                                    <button onclick="abrirModalVotoDAO(${s.id}, '${s.titulo.replace(/'/g, "\\'")}', '${s.descricao.replace(/'/g, "\\'")}
-
-')" style="background: var(--secondary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%;">
-                                        🗳️ Votar Nesta Sugestão
-                                    </button>
+                                    <div id="votoCard${s.id}" style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                            <button onclick="votarRapidoDAO(${s.id}, true)" style="flex: 1; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+                                                👍 A Favor
+                                            </button>
+                                            <button onclick="votarRapidoDAO(${s.id}, false)" style="flex: 1; background: linear-gradient(135deg, #f44336, #d32f2f); color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+                                                👎 Contra
+                                            </button>
+                                        </div>
+                                        <div id="infoVoto${s.id}" style="text-align: center; font-size: 12px; color: #666; display: none;">
+                                            <span id="votosUsuario${s.id}">0</span> voto(s) • <span id="tokensUsuario${s.id}">0</span> token(s) usados
+                                        </div>
+                                    </div>
                                 </div>
                             ` : ''}
 
@@ -2443,7 +2722,7 @@
             const descricao = document.getElementById('daoSugestaoDescricao').value.trim();
 
             if (!titulo || !descricao) {
-                alert('Preencha título e descrição');
+                mostrarToastInfo('Preencha o título e a descrição da sugestão', '📝');
                 return;
             }
 
@@ -2463,18 +2742,17 @@
                 if (response.ok) {
                     document.getElementById('daoSugestaoTitulo').value = '';
                     document.getElementById('daoSugestaoDescricao').value = '';
-                    alert('✅ Sugestão criada! Você gastou 5 tokens.\n\nAguardando aprovação.');
+                    mostrarToastSucesso('Sugestão criada! Você gastou 5 tokens.<br><br><small>Aguardando aprovação do moderador</small>', '💡');
                     carregarSugestoesDAO();
-                    atualizarCarteira(); // Atualizar saldo
+                    atualizarCarteira();
                 } else if (response.status === 402) {
-                    // Saldo insuficiente
-                    alert(`❌ ${data.detail.mensagem}\n\n💡 ${data.detail.dica}`);
+                    mostrarToastErro(`${data.detail.mensagem}<br><br>💡 ${data.detail.dica}`);
                 } else {
-                    alert('Erro ao criar sugestão');
+                    mostrarToastErro('Erro ao criar sugestão');
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                alert('Erro ao criar sugestão');
+                mostrarToastErro('Erro ao criar sugestão');
             }
         }
 
@@ -2490,35 +2768,520 @@
                 });
 
                 const data = await response.json();
-                alert(data.mensagem);
+                mostrarToastSucesso(data.mensagem, '✅');
                 carregarSugestoesDAO();
             } catch (error) {
                 console.error('Erro:', error);
+                mostrarToastErro('Erro ao aprovar sugestão');
             }
         }
 
         async function rejeitarSugestaoDAO(id) {
-            const motivo = prompt('Por que está rejeitando esta sugestão?');
-            if (!motivo) return;
+            mostrarModalInput(
+                '❌ Rejeitar Sugestão',
+                'Por que está rejeitando esta sugestão?',
+                'Digite o motivo da rejeição...',
+                async (motivo) => {
+                    try {
+                        const response = await fetch(`${API_URL_AUTH}/dao/sugestoes/${id}/rejeitar`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                sugestao_id: id,
+                                usuario_admin: usuarioAtual,
+                                motivo
+                            })
+                        });
 
-            try {
-                const response = await fetch(`${API_URL_AUTH}/dao/sugestoes/${id}/rejeitar`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sugestao_id: id,
-                        usuario_admin: usuarioAtual,
-                        motivo
-                    })
-                });
-
-                if (response.ok) {
-                    alert('Sugestão rejeitada');
-                    carregarSugestoesDAO();
+                        if (response.ok) {
+                            mostrarToastSucesso('Sugestão rejeitada', '❌');
+                            carregarSugestoesDAO();
+                        } else {
+                            mostrarToastErro('Erro ao rejeitar sugestão');
+                        }
+                    } catch (error) {
+                        console.error('Erro:', error);
+                        mostrarToastErro('Erro ao rejeitar sugestão');
+                    }
                 }
-            } catch (error) {
-                console.error('Erro:', error);
-            }
+            );
+        }
+
+        async function aceitarImplementarDAO(sugestaoId) {
+            // Criar modal de confirmação bonito
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 64px; margin-bottom: 10px;">🛠️</div>
+                        <h2 style="margin: 0 0 10px 0; color: #333;">Aceitar Implementação?</h2>
+                        <p style="margin: 0; color: #666; font-size: 14px;">
+                            Você será responsável por implementar esta sugestão.<br>
+                            Ao concluir, receberá <strong style="color: #2196F3;">5 tokens</strong> do escrow!
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button id="cancelar-aceitar" style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button id="confirmar-aceitar" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #2196F3, #1976D2); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            🛠️ Aceitar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Event listeners
+            const confirmarBtn = modal.querySelector('#confirmar-aceitar');
+            const cancelarBtn = modal.querySelector('#cancelar-aceitar');
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => document.body.removeChild(modal), 200);
+            };
+
+            cancelarBtn.onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+
+            confirmarBtn.onclick = async () => {
+                fecharModal();
+
+                try {
+                    const response = await fetch(`${API_URL_AUTH}/moderadores/aceitar-implementar`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sugestao_id: sugestaoId,
+                            moderador_nome: usuarioAtual
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        mostrarToastAceito(data.mensagem || 'Implementação aceita com sucesso!');
+                        carregarEstatisticasDAO();
+                    } else {
+                        mostrarToastErro(data.detail || 'Erro ao aceitar implementação');
+                    }
+                } catch (error) {
+                    console.error('Erro:', error);
+                    mostrarToastErro('Erro ao aceitar implementação');
+                }
+            };
+        }
+
+        async function concluirImplementacaoDAO(sugestaoId) {
+            // Criar modal de confirmação bonito
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 64px; margin-bottom: 10px;">🎉</div>
+                        <h2 style="margin: 0 0 10px 0; color: #333;">Concluir Implementação?</h2>
+                        <p style="margin: 0; color: #666; font-size: 14px;">
+                            Você receberá <strong style="color: #4CAF50;">5 tokens</strong> do escrow ao confirmar!
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button id="cancelar-conclusao" style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button id="confirmar-conclusao" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            ✅ Confirmar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Event listeners
+            const confirmarBtn = modal.querySelector('#confirmar-conclusao');
+            const cancelarBtn = modal.querySelector('#cancelar-conclusao');
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => document.body.removeChild(modal), 200);
+            };
+
+            cancelarBtn.onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+
+            confirmarBtn.onclick = async () => {
+                fecharModal();
+
+                try {
+                    const response = await fetch(`${API_URL_AUTH}/moderadores/marcar-implementada`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sugestao_id: sugestaoId,
+                            moderador_nome: usuarioAtual
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        mostrarToastConclusao(data.tokens_recebidos || 5);
+                        carregarEstatisticasDAO();
+                        atualizarCarteira();
+                    } else {
+                        mostrarToastErro(data.detail || 'Erro ao concluir implementação');
+                    }
+                } catch (error) {
+                    console.error('Erro:', error);
+                    mostrarToastErro('Erro ao concluir implementação');
+                }
+            };
+        }
+
+        function mostrarToastConclusao(tokensRecebidos) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #FFD700, #FFA500);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">🎉</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">✅ Implementação Concluída!</div>
+                        <div style="font-size: 14px; opacity: 0.95;">
+                            Você recebeu <strong>${tokensRecebidos} tokens</strong> do escrow!
+                        </div>
+                        <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">
+                            💰 Tokens creditados na sua carteira
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 5000);
+        }
+
+        function mostrarToastErro(mensagem) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #f44336, #d32f2f);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">❌</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">Erro</div>
+                        <div style="font-size: 14px; opacity: 0.95;">
+                            ${mensagem}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 4000);
+        }
+
+        function mostrarToastAceito(mensagem) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #2196F3, #1976D2);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">🛠️</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">✅ Implementação Aceita!</div>
+                        <div style="font-size: 14px; opacity: 0.95;">
+                            ${mensagem}
+                        </div>
+                        <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">
+                            💡 Concluindo, você receberá 5 tokens do escrow
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 5000);
+        }
+
+        // Funções auxiliares reutilizáveis para modals e toasts
+        function mostrarToastSucesso(mensagem, icone = '✅') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #4CAF50, #45a049);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">${icone}</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 16px; opacity: 0.95; line-height: 1.4;">
+                            ${mensagem}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (toast.parentNode) document.body.removeChild(toast);
+                }, 300);
+            }, 4000);
+        }
+
+        function mostrarToastInfo(mensagem, icone = 'ℹ️') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #2196F3, #1976D2);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">${icone}</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 16px; opacity: 0.95; line-height: 1.4;">
+                            ${mensagem}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (toast.parentNode) document.body.removeChild(toast);
+                }, 300);
+            }, 3500);
+        }
+
+        function mostrarModalConfirmar(titulo, mensagem, icone, onConfirm) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 64px; margin-bottom: 10px;">${icone}</div>
+                        <h2 style="margin: 0 0 10px 0; color: #333;">${titulo}</h2>
+                        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">
+                            ${mensagem}
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button class="btn-cancelar" style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button class="btn-confirmar" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => {
+                    if (modal.parentNode) document.body.removeChild(modal);
+                }, 200);
+            };
+
+            modal.querySelector('.btn-cancelar').onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+            modal.querySelector('.btn-confirmar').onclick = () => {
+                fecharModal();
+                if (onConfirm) onConfirm();
+            };
+        }
+
+        function mostrarModalInput(titulo, mensagem, placeholder, onConfirm) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <h2 style="margin: 0 0 10px 0; color: #333;">${titulo}</h2>
+                    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+                        ${mensagem}
+                    </p>
+                    <input type="text" class="modal-input" placeholder="${placeholder}"
+                        style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-cancelar" style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button class="btn-confirmar" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const input = modal.querySelector('.modal-input');
+            input.focus();
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => {
+                    if (modal.parentNode) document.body.removeChild(modal);
+                }, 200);
+            };
+
+            modal.querySelector('.btn-cancelar').onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+
+            const confirmar = () => {
+                const valor = input.value.trim();
+                if (valor && onConfirm) {
+                    fecharModal();
+                    onConfirm(valor);
+                }
+            };
+
+            modal.querySelector('.btn-confirmar').onclick = confirmar;
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') confirmar();
+            });
         }
 
         // Modal de votação
@@ -2526,18 +3289,96 @@
 
         function abrirModalVotoDAO(id, titulo, descricao) {
             sugestaoAtualDAO = id;
-            const modal = prompt(`Votação: ${titulo}\n\nQuantos tokens deseja usar? (1-100)\nFórmula: votos = √(tokens)\n\n1=1 voto, 4=2 votos, 9=3 votos, 16=4 votos\n\nDigite os tokens e depois escolha Favor/Contra:`);
 
-            if (!modal) return;
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
 
-            const tokens = parseInt(modal);
-            if (isNaN(tokens) || tokens < 1 || tokens > 100) {
-                alert('Valor inválido! Use entre 1 e 100 tokens.');
-                return;
-            }
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 500px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <h2 style="margin: 0 0 10px 0; color: #333;">🗳️ ${titulo}</h2>
+                    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">${descricao}</p>
 
-            const favor = confirm(`Usar ${tokens} tokens para votar A FAVOR?\n\nVotos gerados: ${Math.floor(Math.sqrt(tokens))}\n\nOK = A Favor | Cancelar = Contra`);
-            votarSugestaoDAO(tokens, favor);
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;">Quantos tokens deseja usar?</label>
+                        <input type="number" id="tokens-input" min="1" max="100" value="1"
+                            style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 10px;">
+                        <div style="font-size: 13px; color: #666; margin-bottom: 8px;">
+                            Fórmula quadrática: votos = √(tokens)<br>
+                            1 token = 1 voto | 4 tokens = 2 votos | 9 tokens = 3 votos
+                        </div>
+                        <div style="font-size: 16px; font-weight: 600; color: #4CAF50;">
+                            Votos gerados: <span id="votos-display">1</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-cancelar" style="flex: 1; padding: 14px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button class="btn-contra" style="flex: 1; padding: 14px; background: linear-gradient(135deg, #f44336, #d32f2f); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            👎 Contra
+                        </button>
+                        <button class="btn-favor" style="flex: 1; padding: 14px; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            👍 A Favor
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const tokensInput = modal.querySelector('#tokens-input');
+            const votosDisplay = modal.querySelector('#votos-display');
+
+            tokensInput.addEventListener('input', () => {
+                const tokens = parseInt(tokensInput.value) || 1;
+                const votos = Math.floor(Math.sqrt(tokens));
+                votosDisplay.textContent = votos;
+            });
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => {
+                    if (modal.parentNode) document.body.removeChild(modal);
+                }, 200);
+            };
+
+            modal.querySelector('.btn-cancelar').onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+
+            modal.querySelector('.btn-favor').onclick = () => {
+                const tokens = parseInt(tokensInput.value) || 1;
+                if (tokens < 1 || tokens > 100) {
+                    mostrarToastInfo('Use entre 1 e 100 tokens', 'ℹ️');
+                    return;
+                }
+                fecharModal();
+                votarSugestaoDAO(tokens, true);
+            };
+
+            modal.querySelector('.btn-contra').onclick = () => {
+                const tokens = parseInt(tokensInput.value) || 1;
+                if (tokens < 1 || tokens > 100) {
+                    mostrarToastInfo('Use entre 1 e 100 tokens', 'ℹ️');
+                    return;
+                }
+                fecharModal();
+                votarSugestaoDAO(tokens, false);
+            };
+
+            tokensInput.focus();
         }
 
         async function votarSugestaoDAO(tokens, favor) {
@@ -2556,26 +3397,37 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    alert(`✅ ${data.mensagem}\nSaldo restante: ${data.saldo_restante} tokens`);
+                    const icone = favor ? '👍' : '👎';
+                    mostrarToastSucesso(`${data.mensagem}<br><br>💰 Saldo restante: ${data.saldo_restante} tokens`, icone);
                     carregarSugestoesDAO();
-                    atualizarCarteira(); // Atualizar saldo
+                    atualizarCarteira();
                 } else {
-                    alert(`❌ ${data.detail || 'Erro ao votar'}`);
+                    mostrarToastErro(data.detail || 'Erro ao votar');
                 }
             } catch (error) {
                 console.error('Erro:', error);
-                alert('Erro ao votar');
+                mostrarToastErro('Erro ao votar');
             }
         }
 
         // Estatísticas
         async function carregarEstatisticasDAO() {
             try {
-                const response = await fetch(`${API_URL_AUTH}/dao/estatisticas`);
-                const stats = await response.json();
+                const [statsResponse, sugestoesResponse] = await Promise.all([
+                    fetch(`${API_URL_AUTH}/dao/estatisticas`),
+                    fetch(`${API_URL_AUTH}/dao/sugestoes`)
+                ]);
 
-                document.getElementById('daoEstatisticas').innerHTML = `
-                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                const stats = await statsResponse.json();
+                const todasSugestoes = await sugestoesResponse.json();
+
+                // Filtrar sugestões por status
+                const emImplementacao = todasSugestoes.filter(s => s.status === 'em_implementacao');
+                const implementadas = todasSugestoes.filter(s => s.status === 'implementada');
+                const aprovadas = todasSugestoes.filter(s => s.status === 'aprovada');
+
+                let html = `
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
                         <h3 style="margin-bottom: 20px;">📊 Estatísticas da DAO</h3>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
                             <div style="background: #e8f5e9; padding: 20px; border-radius: 10px; text-align: center;">
@@ -2605,9 +3457,100 @@
                         </div>
                     </div>
                 `;
+
+                // Seção: Em Implementação (Trabalhando)
+                if (emImplementacao.length > 0) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                            <h3 style="color: #2196F3; margin-bottom: 15px;">🛠️ Trabalhando (${emImplementacao.length})</h3>
+                    `;
+                    emImplementacao.forEach(s => {
+                        html += renderSugestaoEstatisticas(s);
+                    });
+                    html += `</div>`;
+                }
+
+                // Seção: Aprovadas (Aguardando Moderador)
+                if (aprovadas.length > 0) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                            <h3 style="color: #4CAF50; margin-bottom: 15px;">✅ Aprovadas - Aguardando Moderador (${aprovadas.length})</h3>
+                    `;
+                    aprovadas.forEach(s => {
+                        html += renderSugestaoEstatisticas(s);
+                    });
+                    html += `</div>`;
+                }
+
+                // Seção: Implementadas (Concluídas)
+                if (implementadas.length > 0) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                            <h3 style="color: #9C27B0; margin-bottom: 15px;">🎉 Concluídas (${implementadas.length})</h3>
+                    `;
+                    implementadas.forEach(s => {
+                        html += renderSugestaoEstatisticas(s);
+                    });
+                    html += `</div>`;
+                }
+
+                document.getElementById('daoEstatisticas').innerHTML = html;
             } catch (error) {
                 console.error('Erro ao carregar estatísticas:', error);
             }
+        }
+
+        function renderSugestaoEstatisticas(s) {
+            const statusInfo = {
+                'aprovada': { cor: '#4CAF50', texto: '✅ Aprovada' },
+                'em_implementacao': { cor: '#2196F3', texto: '🛠️ Trabalhando' },
+                'implementada': { cor: '#9C27B0', texto: '🎉 Concluída' }
+            };
+
+            const info = statusInfo[s.status] || { cor: '#666', texto: s.status };
+
+            return `
+                <div style="background: #f9f9f9; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 16px; color: #333;">${s.titulo}</h4>
+                            <p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">
+                                por <strong>${s.usuario_nome}</strong> • ${formatarDataDAO(s.data_criacao)}
+                            </p>
+                        </div>
+                        <div style="background: ${info.cor}; color: white; padding: 6px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap;">
+                            ${info.texto}
+                        </div>
+                    </div>
+
+                    <p style="color: #555; margin: 10px 0; font-size: 14px;">${s.descricao}</p>
+
+                    ${s.tokens_escrow > 0 ? `
+                        <div style="display: inline-block; background: #fff3cd; color: #856404; padding: 6px 12px; border-radius: 8px; font-size: 13px; margin-top: 10px;">
+                            💰 ${s.tokens_escrow} tokens em escrow
+                        </div>
+                    ` : ''}
+
+                    ${s.moderador_implementador ? `
+                        <div style="background: #e7f3ff; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 13px;">
+                            👮 <strong>Moderador:</strong> ${s.moderador_implementador}
+                            ${s.status === 'implementada' ? ' • <span style="color: #4CAF50;">Implementação concluída</span>' : ' • <span style="color: #2196F3;">Trabalhando na implementação</span>'}
+                        </div>
+                    ` : ''}
+
+                    ${s.status === 'em_implementacao' && s.moderador_implementador === usuarioAtual ? `
+                        <button onclick="concluirImplementacaoDAO(${s.id})" style="background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+                            ✅ Concluir Implementação e Receber Tokens
+                        </button>
+                    ` : ''}
+
+                    ${s.status === 'aprovada' && usuarioAtual === 'Vengel' ? `
+                        <button onclick="aceitarImplementarDAO(${s.id})" style="background: linear-gradient(135deg, #2196F3, #1976D2); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+                            🛠️ Aceitar Implementação
+                        </button>
+                    ` : ''}
+                </div>
+            `;
         }
 
         // Utilidades DAO
@@ -2632,8 +3575,9 @@
                 'pendente_aprovacao': '⏳ Pendente',
                 'em_votacao': '🗳️ Em Votação',
                 'aprovada': '✅ Aprovada',
+                'em_implementacao': '🛠️ Trabalhando',
+                'implementada': '🎉 Concluída',
                 'rejeitada': '❌ Rejeitada',
-                'implementada': '🎉 Implementada',
                 'cancelada': '🚫 Cancelada'
             };
             return traducoes[status] || status;
@@ -2644,8 +3588,9 @@
                 'pendente_aprovacao': 'background: #fff3cd; color: #856404;',
                 'em_votacao': 'background: #cfe2ff; color: #084298;',
                 'aprovada': 'background: #d1e7dd; color: #0f5132;',
+                'em_implementacao': 'background: #e3f2fd; color: #2196F3;',
+                'implementada': 'background: #e1bee7; color: #9C27B0;',
                 'rejeitada': 'background: #f8d7da; color: #842029;',
-                'implementada': 'background: #d1e7dd; color: #0f5132;',
                 'cancelada': 'background: #e0e0e0; color: #666;'
             };
             return styles[status] || '';
