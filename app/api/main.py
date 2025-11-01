@@ -2926,11 +2926,13 @@ async def buscar_promocoes(
     supermercado: str,
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
+    distancia_maxima_km: Optional[float] = 5.0,
     db: Session = Depends(get_db)
 ):
     """
     Busca produtos em promoção de um supermercado específico
-    Pode ordenar por proximidade se latitude/longitude fornecidos
+    Pode filtrar por proximidade se latitude/longitude fornecidos
+    distancia_maxima_km: Raio máximo em km (padrão: 5km)
     """
     # Buscar preços em promoção dos últimos 30 dias
     data_limite = datetime.now() - timedelta(days=30)
@@ -2969,12 +2971,14 @@ async def buscar_promocoes(
         }
         promocoes.append(promo_dict)
 
-    # Ordenar por proximidade se localização fornecida
+    # Filtrar e ordenar por proximidade se localização fornecida
     if latitude is not None and longitude is not None:
         from app.utils.geolocalizacao import GeoLocalizacao
 
         geo = GeoLocalizacao()
+        distancia_max = distancia_maxima_km or 5.0
 
+        promocoes_filtradas = []
         for promo in promocoes:
             if promo.get('latitude') and promo.get('longitude'):
                 distancia = geo.calcular_distancia(
@@ -2984,14 +2988,15 @@ async def buscar_promocoes(
                     promo['longitude']
                 )
                 promo['distancia_km'] = round(distancia, 2)
-            else:
-                promo['distancia_km'] = 9999
 
-        # Ordenar por distância
-        promocoes.sort(key=lambda x: x['distancia_km'])
+                # Apenas incluir se estiver dentro do raio
+                if distancia <= distancia_max:
+                    promocoes_filtradas.append(promo)
+            # Não incluir promoções sem localização quando usuário forneceu sua posição
 
-        # Remover produtos sem localização
-        promocoes = [p for p in promocoes if p['distancia_km'] < 9999]
+        # Ordenar por distância (mais próximas primeiro)
+        promocoes_filtradas.sort(key=lambda x: x['distancia_km'])
+        promocoes = promocoes_filtradas
     else:
         # Ordenar por maior desconto
         promocoes.sort(key=lambda x: x['desconto_percentual'], reverse=True)
@@ -3000,7 +3005,8 @@ async def buscar_promocoes(
         "supermercado": supermercado,
         "total": len(promocoes),
         "promocoes": promocoes,
-        "ordenado_por_proximidade": latitude is not None and longitude is not None
+        "ordenado_por_proximidade": latitude is not None and longitude is not None,
+        "distancia_maxima_km": distancia_maxima_km if latitude is not None else None
     }
 
 
