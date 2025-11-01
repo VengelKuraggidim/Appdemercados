@@ -95,11 +95,25 @@ class GeradorProdutos:
         Gera produtos baseado no termo de busca
         Sempre retorna os mesmos produtos para o mesmo termo
 
-        Se lat_usuario e lon_usuario forem fornecidos, gera coordenadas próximas
+        Se lat_usuario e lon_usuario forem fornecidos, descobre supermercados REAIS próximos
         """
         print(f"\n{'='*60}")
         print(f"🎲 GERADOR DE PRODUTOS: '{termo}'")
         print(f"{'='*60}")
+
+        # NOVO: Descobrir supermercados reais se tiver GPS
+        supermercados_reais = []
+        if lat_usuario is not None and lon_usuario is not None:
+            try:
+                from app.scrapers.descobrir_supermercados import descobrir_supermercados
+                print(f"   🔍 Descobrindo supermercados REAIS próximos...")
+                supermercados_reais = descobrir_supermercados.descobrir_por_gps(
+                    lat_usuario, lon_usuario, raio_km=10.0
+                )
+                if supermercados_reais:
+                    print(f"   ✅ Encontrados {len(supermercados_reais)} supermercados reais!")
+            except Exception as e:
+                print(f"   ⚠️  Não foi possível descobrir supermercados: {e}")
 
         categoria = self._detectar_categoria(termo)
         marcas = self.marcas.get(categoria, self.marcas['default'])
@@ -137,30 +151,44 @@ class GeradorProdutos:
                 desconto = random.uniform(0.10, 0.40)
                 preco_original = round(preco / (1 - desconto), 2)
 
-            # Escolher supermercado
-            supermercado = random.choice(self.supermercados)
-
-            # Gerar URL fake mas realista
-            url_slug = termo.lower().replace(' ', '-')
-            url = f"https://www.{supermercado.lower().replace(' ', '')}.com.br/produto/{url_slug}-{marca.lower().replace(' ', '-')}-{i}"
-
-            # Gerar coordenadas GPS fictícias próximas ao usuário (se fornecidas)
+            # NOVO: Escolher supermercado REAL se tiver lista, senão usar genérico
+            supermercado = None
             latitude = None
             longitude = None
             endereco = None
+            website = None
 
-            if lat_usuario is not None and lon_usuario is not None:
-                # Gerar coordenadas em um raio de até 10km do usuário
-                # ~0.01 grau = ~1.1km
-                offset_lat = random.uniform(-0.09, 0.09)  # ~10km
-                offset_lon = random.uniform(-0.09, 0.09)  # ~10km
+            if supermercados_reais and len(supermercados_reais) > 0:
+                # Usar supermercado REAL descoberto!
+                mercado_real = random.choice(supermercados_reais)
+                supermercado = mercado_real['nome']
+                latitude = mercado_real['latitude']
+                longitude = mercado_real['longitude']
+                endereco = mercado_real.get('endereco')
+                website = mercado_real.get('website')
+            else:
+                # Fallback: supermercado genérico
+                supermercado = random.choice(self.supermercados)
 
-                latitude = lat_usuario + offset_lat
-                longitude = lon_usuario + offset_lon
+                # Gerar coordenadas GPS fictícias se usuário forneceu localização
+                if lat_usuario is not None and lon_usuario is not None:
+                    # Gerar coordenadas em um raio de até 10km do usuário
+                    offset_lat = random.uniform(-0.09, 0.09)  # ~10km
+                    offset_lon = random.uniform(-0.09, 0.09)  # ~10km
 
-                # Gerar endereço fictício mas realista
-                ruas = ['Av. Paulista', 'Rua Augusta', 'Av. Brasil', 'Rua Consolação', 'Av. Faria Lima']
-                endereco = f"{random.choice(ruas)}, {random.randint(100, 9999)}"
+                    latitude = lat_usuario + offset_lat
+                    longitude = lon_usuario + offset_lon
+
+                    # Gerar endereço fictício mas realista
+                    ruas = ['Av. Paulista', 'Rua Augusta', 'Av. Brasil', 'Rua Consolação', 'Av. Faria Lima']
+                    endereco = f"{random.choice(ruas)}, {random.randint(100, 9999)}"
+
+            # Gerar URL (real se tiver website, senão fake)
+            if website:
+                url = website
+            else:
+                url_slug = termo.lower().replace(' ', '-')
+                url = f"https://www.{supermercado.lower().replace(' ', '')}.com.br/produto/{url_slug}-{marca.lower().replace(' ', '-')}-{i}"
 
             produtos.append({
                 'nome': nome,
