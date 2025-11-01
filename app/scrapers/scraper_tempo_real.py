@@ -203,30 +203,50 @@ class ScraperTempoReal:
         self,
         termo: str,
         max_por_fonte: int = 10,
-        usar_selenium: bool = True,
-        usar_scraper_unificado: bool = False,  # Desativado por padrão
-        usar_gerador: bool = True  # NOVO: Gerar produtos sob demanda
+        usar_selenium: bool = False,
+        usar_scraper_real: bool = True,  # NOVO: Scraping REAL por padrão
+        usar_gerador_fallback: bool = True  # Usar gerador se scraping falhar
     ) -> List[Dict]:
         """
-        Busca em todas as fontes disponíveis
+        Busca produtos REAIS da web sob demanda
 
-        NOVO: Por padrão usa gerador de produtos sob demanda
-        - Gera produtos realistas baseado no termo de busca
-        - Consistente (mesma busca = mesmos produtos)
-        - Rápido e confiável
+        NOVO: Scraping REAL usando Playwright
+        - Busca produtos reais do Mercado Livre e Google Shopping
+        - Sob demanda (quando usuário buscar)
+        - Não armazena no banco (busca sempre que precisar)
 
-        Para ativar scraping real: usar_scraper_unificado=True (não recomendado)
+        Fallback: Se scraping falhar, usa gerador
         """
-        print(f"\n🔍 Buscando produtos para '{termo}'...")
+        print(f"\n🔍 Buscando produtos REAIS para '{termo}'...")
 
-        # NOVO: Usar gerador de produtos (RECOMENDADO)
-        if usar_gerador:
+        # SCRAPING REAL (Recomendado)
+        if usar_scraper_real:
             try:
-                from app.scrapers.gerador_produtos import gerador_produtos
-                print("   🎲 Gerando produtos sob demanda...")
-                return gerador_produtos.gerar_produtos(termo, quantidade=15)
+                from app.scrapers.scraper_real_playwright import buscar_produtos_reais
+                print("   🌐 Fazendo scraping REAL da web...")
+
+                produtos = buscar_produtos_reais(termo)
+
+                if produtos and len(produtos) > 0:
+                    print(f"   ✅ Encontrados {len(produtos)} produtos REAIS!")
+                    return produtos
+                else:
+                    print("   ⚠️  Scraping não retornou produtos")
+
+                    # Fallback para gerador
+                    if usar_gerador_fallback:
+                        print("   🎲 Usando gerador como fallback...")
+                        from app.scrapers.gerador_produtos import gerador_produtos
+                        return gerador_produtos.gerar_produtos(termo, quantidade=15)
+
             except Exception as e:
-                print(f"   ⚠️  Erro no gerador: {e}")
+                print(f"   ❌ Erro no scraping real: {e}")
+
+                # Fallback para gerador
+                if usar_gerador_fallback:
+                    print("   🎲 Usando gerador como fallback...")
+                    from app.scrapers.gerador_produtos import gerador_produtos
+                    return gerador_produtos.gerar_produtos(termo, quantidade=15)
 
         # Scraper unificado (tentará scraping real - não funciona bem)
         if usar_scraper_unificado:
