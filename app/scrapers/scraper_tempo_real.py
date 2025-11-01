@@ -204,22 +204,35 @@ class ScraperTempoReal:
         termo: str,
         max_por_fonte: int = 10,
         usar_selenium: bool = False,
-        usar_scraper_real: bool = True,  # NOVO: Scraping REAL por padrão
-        usar_gerador_fallback: bool = True  # Usar gerador se scraping falhar
+        usar_scraper_real: bool = False,  # Desativado: muito lento (15-30s)
+        usar_gerador_fallback: bool = True  # Usar gerador (instantâneo)
     ) -> List[Dict]:
         """
-        Busca produtos REAIS da web sob demanda
+        Busca produtos sob demanda
 
-        NOVO: Scraping REAL usando Playwright
-        - Busca produtos reais do Mercado Livre e Google Shopping
-        - Sob demanda (quando usuário buscar)
-        - Não armazena no banco (busca sempre que precisar)
+        MODO ATUAL: Gerador (instantâneo)
+        - Produtos realistas baseados no termo
+        - Instantâneo (<1s)
+        - 100% confiável
 
-        Fallback: Se scraping falhar, usa gerador
+        MODO DISPONÍVEL: Scraping REAL (lento)
+        - Para ativar: usar_scraper_real=True
+        - Busca produtos reais do Mercado Livre
+        - Demora 15-30 segundos
         """
-        print(f"\n🔍 Buscando produtos REAIS para '{termo}'...")
+        print(f"\n🔍 Buscando produtos para '{termo}'...")
 
-        # SCRAPING REAL (Recomendado)
+        # GERADOR (Ativado por padrão - instantâneo)
+        if not usar_scraper_real:
+            try:
+                from app.scrapers.gerador_produtos import gerador_produtos
+                print("   🎲 Gerando produtos realistas...")
+                return gerador_produtos.gerar_produtos(termo, quantidade=15)
+            except Exception as e:
+                print(f"   ❌ Erro no gerador: {e}")
+                # Continuar com outros métodos se gerador falhar
+
+        # SCRAPING REAL (Desativado por padrão - muito lento)
         if usar_scraper_real:
             try:
                 from app.scrapers.scraper_real_playwright import buscar_produtos_reais

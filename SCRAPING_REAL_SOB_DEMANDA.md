@@ -83,7 +83,11 @@ async def buscar_mercadolivre_real(termo):
 
 ## 🔧 Integração Automática
 
-**Já está ativo na API!**
+**ATUALIZAÇÃO: Gerador ativado por padrão (instantâneo)**
+
+O scraping REAL está disponível mas desativado por padrão porque demora 15-30 segundos e causa timeout no frontend.
+
+**Modo Atual:** Gerador (instantâneo, 100% confiável)
 
 ```bash
 POST /api/buscar
@@ -104,12 +108,14 @@ POST /api/buscar
 ```python
 # app/scrapers/scraper_tempo_real.py linha 207
 
-# Scraping REAL ativado (padrão)
-usar_scraper_real: bool = True
-
-# Desativar (usar só gerador)
+# PADRÃO: Gerador (instantâneo)
 usar_scraper_real: bool = False
+
+# Para ativar scraping REAL (lento, 15-30s):
+usar_scraper_real: bool = True
 ```
+
+**IMPORTANTE:** Scraping REAL demora 15-30 segundos e pode causar timeout no frontend. Use apenas para testes ou quando velocidade não for crítica.
 
 ### Ajustar Fallback
 
