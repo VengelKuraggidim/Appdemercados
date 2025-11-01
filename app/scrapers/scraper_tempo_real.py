@@ -199,13 +199,29 @@ class ScraperTempoReal:
 
         return produtos
 
-    def buscar_todos(self, termo: str, max_por_fonte: int = 10, usar_selenium: bool = True) -> List[Dict]:
+    def buscar_todos(
+        self,
+        termo: str,
+        max_por_fonte: int = 10,
+        usar_selenium: bool = True,
+        usar_scraper_unificado: bool = True
+    ) -> List[Dict]:
         """
         Busca em todas as fontes disponíveis
-        Se usar_selenium=True, usa scraper humano como fallback
+        Agora usa o Scraper Unificado Inteligente para melhores resultados
         """
         print(f"\n🔍 Buscando preços REAIS de '{termo}'...")
 
+        # Se scraper unificado ativado, usar ele (RECOMENDADO)
+        if usar_scraper_unificado:
+            try:
+                from app.scrapers.scraper_unificado import scraper_unificado
+                print("   🧠 Usando Scraper Unificado Inteligente...")
+                return scraper_unificado.buscar_inteligente(termo, minimo_produtos=5)
+            except Exception as e:
+                print(f"   ⚠️  Erro no Scraper Unificado, usando método tradicional: {e}")
+
+        # Método tradicional (fallback)
         todos_produtos = []
 
         # Tentar todas as fontes em paralelo seria melhor, mas por enquanto sequencial
