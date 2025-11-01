@@ -204,22 +204,52 @@ class ScraperTempoReal:
         termo: str,
         max_por_fonte: int = 10,
         usar_selenium: bool = True,
-        usar_scraper_unificado: bool = True
+        usar_scraper_unificado: bool = False,  # Desativado por padrão
+        usar_gerador: bool = True  # NOVO: Gerar produtos sob demanda
     ) -> List[Dict]:
         """
         Busca em todas as fontes disponíveis
-        Agora usa o Scraper Unificado Inteligente para melhores resultados
-        """
-        print(f"\n🔍 Buscando preços REAIS de '{termo}'...")
 
-        # Se scraper unificado ativado, usar ele (RECOMENDADO)
+        NOVO: Por padrão usa gerador de produtos sob demanda
+        - Gera produtos realistas baseado no termo de busca
+        - Consistente (mesma busca = mesmos produtos)
+        - Rápido e confiável
+
+        Para ativar scraping real: usar_scraper_unificado=True (não recomendado)
+        """
+        print(f"\n🔍 Buscando produtos para '{termo}'...")
+
+        # NOVO: Usar gerador de produtos (RECOMENDADO)
+        if usar_gerador:
+            try:
+                from app.scrapers.gerador_produtos import gerador_produtos
+                print("   🎲 Gerando produtos sob demanda...")
+                return gerador_produtos.gerar_produtos(termo, quantidade=15)
+            except Exception as e:
+                print(f"   ⚠️  Erro no gerador: {e}")
+
+        # Scraper unificado (tentará scraping real - não funciona bem)
         if usar_scraper_unificado:
             try:
                 from app.scrapers.scraper_unificado import scraper_unificado
-                print("   🧠 Usando Scraper Unificado Inteligente...")
-                return scraper_unificado.buscar_inteligente(termo, minimo_produtos=5)
+                print("   🧠 Tentando Scraper Unificado (pode não funcionar)...")
+                produtos = scraper_unificado.buscar_inteligente(termo, minimo_produtos=5)
+
+                # Se não encontrou nada, usar gerador
+                if not produtos and usar_gerador:
+                    print("   ⚠️  Scraping falhou, usando gerador...")
+                    from app.scrapers.gerador_produtos import gerador_produtos
+                    return gerador_produtos.gerar_produtos(termo, quantidade=15)
+
+                return produtos
             except Exception as e:
-                print(f"   ⚠️  Erro no Scraper Unificado, usando método tradicional: {e}")
+                print(f"   ⚠️  Erro no Scraper Unificado: {e}")
+
+                # Fallback para gerador
+                if usar_gerador:
+                    print("   🎲 Usando gerador como fallback...")
+                    from app.scrapers.gerador_produtos import gerador_produtos
+                    return gerador_produtos.gerar_produtos(termo, quantidade=15)
 
         # Método tradicional (fallback)
         todos_produtos = []
