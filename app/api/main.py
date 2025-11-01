@@ -146,41 +146,35 @@ async def buscar_produtos(
 
     produtos_encontrados = []
 
-    # DECISÃO: Se usuário forneceu GPS, GERAR produtos novos com GPS correto
-    # Se não, buscar no banco (contribuições antigas)
-    usar_banco_dados = request.latitude is None or request.longitude is None
+    # SEMPRE buscar produtos REAIS do banco primeiro (contribuições dos usuários)
+    data_limite = datetime.now() - timedelta(days=30)  # Last 30 days
 
-    if usar_banco_dados:
-        # Buscar no banco de dados (contribuições) quando NÃO tem GPS
-        data_limite = datetime.now() - timedelta(days=30)  # Last 30 days
+    precos_db = db.query(Preco).join(Produto).filter(
+        Produto.nome.ilike(f"%{request.termo}%"),
+        Preco.data_coleta >= data_limite,
+        Preco.disponivel == True
+    ).order_by(Preco.data_coleta.desc()).all()  # MAIS RECENTES PRIMEIRO!
 
-        precos_db = db.query(Preco).join(Produto).filter(
-            Produto.nome.ilike(f"%{request.termo}%"),
-            Preco.data_coleta >= data_limite,
-            Preco.disponivel == True
-        ).all()
+    # Add products from database (PRODUTOS REAIS)
+    for preco in precos_db:
+        produto_dict = {
+            'nome': preco.produto.nome,
+            'marca': preco.produto.marca,
+            'preco': preco.preco,
+            'em_promocao': preco.em_promocao,
+            'url': preco.url or '#',
+            'supermercado': preco.supermercado,
+            'disponivel': preco.disponivel,
+            'fonte': 'contribuicao' if preco.manual else 'scraper',
+            'data_coleta': preco.data_coleta.isoformat() if preco.data_coleta else None,
+            'latitude': preco.latitude,
+            'longitude': preco.longitude,
+            'endereco': preco.endereco,
+            'produto_real': True  # MARCAR COMO REAL!
+        }
+        produtos_encontrados.append(produto_dict)
 
-        # Add products from database
-        for preco in precos_db:
-            produto_dict = {
-                'nome': preco.produto.nome,
-                'marca': preco.produto.marca,
-                'preco': preco.preco,
-                'em_promocao': preco.em_promocao,
-                'url': preco.url or '#',
-                'supermercado': preco.supermercado,
-                'disponivel': preco.disponivel,
-                'fonte': 'contribuicao' if preco.manual else 'scraper',
-                'data_coleta': preco.data_coleta.isoformat() if preco.data_coleta else None,
-                'latitude': preco.latitude,
-                'longitude': preco.longitude,
-                'endereco': preco.endereco
-            }
-            produtos_encontrados.append(produto_dict)
-
-        print(f"   📦 Encontrados {len(produtos_encontrados)} produtos no banco de dados")
-    else:
-        print(f"   🎯 Usuário forneceu GPS - gerando produtos próximos em vez de usar banco")
+    print(f"   📦 Encontrados {len(produtos_encontrados)} produtos REAIS no banco de dados")
 
     # ✨ NOVO: Scraping em tempo real quando usuário busca
     # Tenta buscar preços REAIS daquele momento nos supermercados
@@ -230,6 +224,7 @@ async def buscar_produtos(
                 # Adicionar aos resultados
                 item['fonte'] = 'scraper_tempo_real'
                 item['data_coleta'] = datetime.now().isoformat()
+                item['produto_real'] = item.get('fonte') != 'gerador_sob_demanda'  # SE é gerador, NÃO é real
                 produtos_encontrados.append(item)
                 scraped_count += 1
 
