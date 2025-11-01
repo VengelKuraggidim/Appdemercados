@@ -240,7 +240,7 @@ async def buscar_produtos(
         from app.utils.geolocalizacao import GeoLocalizacao
 
         geo = GeoLocalizacao()
-        distancia_maxima = request.distancia_maxima_km or 5.0  # Padrão 5km
+        distancia_maxima = request.distancia_maxima_km or 5.0  # Padrão 5km (supermercados próximos)
 
         # Calcular distância para cada produto que tem localização
         produtos_com_distancia = []

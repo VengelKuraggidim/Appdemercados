@@ -108,7 +108,7 @@ class GeradorProdutos:
                 from app.scrapers.descobrir_supermercados import descobrir_supermercados
                 print(f"   🔍 Descobrindo supermercados REAIS próximos...")
                 todos_supermercados = descobrir_supermercados.descobrir_por_gps(
-                    lat_usuario, lon_usuario, raio_km=10.0
+                    lat_usuario, lon_usuario, raio_km=5.0  # REDUZIDO: 5km para supermercados mais próximos
                 )
 
                 if todos_supermercados:
@@ -130,13 +130,20 @@ class GeradorProdutos:
                         else:
                             outros.append(s)
 
-                    # Usar 80% prioritários, 20% outros (para ter variedade)
+                    # PRIORIZAR: redes conhecidas + mais próximos (até 3km)
+                    proximos = [s for s in todos_supermercados if s['distancia_km'] <= 3.0]
+
                     if prioritarios:
-                        supermercados_reais = prioritarios + outros[:len(prioritarios)//4]
+                        # Combinar: redes conhecidas + supermercados muito próximos
+                        supermercados_reais = prioritarios + [s for s in proximos if s not in prioritarios]
+                        # Ordenar por distância (mais próximos primeiro)
+                        supermercados_reais.sort(key=lambda x: x['distancia_km'])
                         print(f"   ✅ Encontrados {len(prioritarios)} das grandes redes conhecidas!")
-                        print(f"   📊 Total: {len(supermercados_reais)} supermercados (priorizando redes conhecidas)")
+                        print(f"   📍 {len(proximos)} supermercados muito próximos (≤3km)")
+                        print(f"   📊 Total: {len(supermercados_reais)} supermercados (priorizando próximos)")
                     else:
-                        supermercados_reais = todos_supermercados
+                        # Só usar os mais próximos se não tem redes conhecidas
+                        supermercados_reais = proximos if proximos else todos_supermercados[:20]
                         print(f"   ✅ Encontrados {len(supermercados_reais)} supermercados reais!")
             except Exception as e:
                 print(f"   ⚠️  Não foi possível descobrir supermercados: {e}")
