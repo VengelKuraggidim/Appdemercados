@@ -230,13 +230,17 @@ async def buscar_produtos(
         print(f"   ⚠️  Erro no scraping em tempo real: {e}")
         # Não é crítico - continuamos com dados do banco
 
-    # Ordenar por proximidade se localização fornecida
+    # Filtrar e ordenar por proximidade se localização fornecida
     if request.latitude is not None and request.longitude is not None:
         from app.utils.geolocalizacao import GeoLocalizacao
 
         geo = GeoLocalizacao()
+        distancia_maxima = request.distancia_maxima_km or 5.0  # Padrão 5km
 
         # Calcular distância para cada produto que tem localização
+        produtos_com_distancia = []
+        produtos_sem_localizacao = []
+
         for produto in produtos_encontrados:
             if produto.get('latitude') and produto.get('longitude'):
                 distancia = geo.calcular_distancia(
@@ -246,23 +250,37 @@ async def buscar_produtos(
                     produto['longitude']
                 )
                 produto['distancia_km'] = round(distancia, 2)
+
+                # Apenas adicionar se estiver dentro da distância máxima
+                if distancia <= distancia_maxima:
+                    produtos_com_distancia.append(produto)
             else:
-                # Produtos sem localização vão para o final
-                produto['distancia_km'] = 9999
+                # Produtos sem localização (para mostrar depois se necessário)
+                produto['distancia_km'] = None
+                produtos_sem_localizacao.append(produto)
 
         # Ordenar por distância (mais próximos primeiro)
-        produtos_encontrados.sort(key=lambda x: x['distancia_km'])
+        produtos_com_distancia.sort(key=lambda x: x['distancia_km'])
 
-        # Remover produtos sem localização do resultado se houver produtos com localização
-        produtos_com_localizacao = [p for p in produtos_encontrados if p['distancia_km'] < 9999]
-        if produtos_com_localizacao:
-            produtos_encontrados = produtos_com_localizacao
+        # Priorizar produtos com localização dentro do raio
+        # Se não houver produtos próximos suficientes, mostrar sem localização também
+        if produtos_com_distancia:
+            # Temos produtos dentro do raio - usar apenas esses
+            produtos_encontrados = produtos_com_distancia
+        elif produtos_sem_localizacao:
+            # Não há produtos dentro do raio, mostrar sem localização
+            produtos_encontrados = produtos_sem_localizacao[:10]  # Limitar a 10
+        else:
+            # Nenhum produto
+            produtos_encontrados = []
 
     resposta = {
         "termo": request.termo,
         "total": len(produtos_encontrados),
         "produtos": produtos_encontrados,
-        "ordenado_por_proximidade": request.latitude is not None and request.longitude is not None
+        "ordenado_por_proximidade": request.latitude is not None and request.longitude is not None,
+        "distancia_maxima_km": request.distancia_maxima_km if request.latitude is not None else None,
+        "filtrado_por_distancia": request.latitude is not None and len(produtos_encontrados) > 0
     }
 
     if not produtos_encontrados:
@@ -938,6 +956,304 @@ async def preview_nota_fiscal(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
+@app.post("/api/ocr-claude-vision")
+async def ocr_claude_vision(
+    file: UploadFile = File(...),
+    usuario_nome: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """
+    OCR usando Claude Vision API (Anthropic) - MUITO mais preciso!
+    Extrai produtos de nota fiscal e adiciona automaticamente ao banco
+    """
+    try:
+        from app.utils.claude_vision_ocr import get_claude_vision_ocr
+
+        # Ler conteúdo da imagem
+        contents = await file.read()
+
+        # Validar tipo de arquivo
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="Arquivo deve ser uma imagem")
+
+        # Criar OCR com Claude Vision
+        ocr = get_claude_vision_ocr()
+
+        # Extrair dados da nota fiscal
+        resultado = ocr.extrair_produtos_nota_fiscal(
+            imagem_bytes=contents,
+            formato_imagem=file.content_type
+        )
+
+        # Verificar se houve sucesso
+        if not resultado.get('sucesso', True):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao processar nota fiscal: {resultado.get('erro', 'Erro desconhecido')}"
+            )
+
+        # Validar e corrigir produtos
+        produtos_extraidos = resultado.get('produtos', [])
+        produtos_validos = ocr.validar_e_corrigir_produtos(produtos_extraidos)
+
+        if not produtos_validos:
+            return {
+                "sucesso": False,
+                "mensagem": "Nenhum produto válido encontrado na nota fiscal",
+                "dados_extraidos": resultado,
+                "produtos_adicionados": 0
+            }
+
+        # Adicionar produtos ao banco de dados
+        supermercado = resultado.get('supermercado', 'Supermercado')
+        data_compra_str = resultado.get('data_compra')
+        data_compra = None
+
+        if data_compra_str:
+            try:
+                data_compra = datetime.fromisoformat(data_compra_str)
+            except:
+                data_compra = datetime.now()
+        else:
+            data_compra = datetime.now()
+
+        produtos_adicionados = []
+        crypto_manager = CryptoManager(db)
+
+        for produto_data in produtos_validos:
+            # Buscar ou criar produto
+            produto = db.query(Produto).filter(
+                func.lower(Produto.nome) == func.lower(produto_data['nome'])
+            ).first()
+
+            if not produto:
+                produto = Produto(
+                    nome=produto_data['nome'],
+                    categoria='Geral'
+                )
+                db.add(produto)
+                db.flush()
+
+            # Criar preço
+            preco = Preco(
+                produto_id=produto.id,
+                supermercado=supermercado,
+                preco=produto_data['preco'],
+                data_coleta=data_compra,
+                manual=True,
+                disponivel=True,
+                endereco=resultado.get('endereco'),
+                url=None
+            )
+            db.add(preco)
+            db.flush()
+
+            produtos_adicionados.append({
+                "produto_id": produto.id,
+                "nome": produto.nome,
+                "preco": preco.preco,
+                "supermercado": supermercado
+            })
+
+        # Recompensar usuário com tokens se forneceu nome
+        tokens_ganhos = 0
+        if usuario_nome:
+            tokens_por_produto = 10  # 10 tokens por produto
+            total_tokens = len(produtos_adicionados) * tokens_por_produto
+
+            try:
+                crypto_manager.adicionar_tokens(
+                    usuario_nome,
+                    total_tokens,
+                    f"Contribuição via OCR Claude Vision: {len(produtos_adicionados)} produtos"
+                )
+                tokens_ganhos = total_tokens
+            except:
+                pass  # Falha silenciosa se usuário não existe
+
+        db.commit()
+
+        return {
+            "sucesso": True,
+            "mensagem": f"{len(produtos_adicionados)} produtos adicionados com sucesso!",
+            "produtos_adicionados": len(produtos_adicionados),
+            "produtos": produtos_adicionados,
+            "tokens_ganhos": tokens_ganhos,
+            "dados_extraidos": {
+                "supermercado": resultado.get('supermercado'),
+                "data_compra": resultado.get('data_compra'),
+                "total": resultado.get('total'),
+                "forma_pagamento": resultado.get('forma_pagamento'),
+                "endereco": resultado.get('endereco')
+            },
+            "metadados": resultado.get('metadados', {})
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar nota fiscal: {str(e)}")
+
+
+@app.post("/api/ocr-inteligente")
+async def ocr_inteligente(
+    file: UploadFile = File(...),
+    usuario_nome: Optional[str] = Form(None),
+    modo: Optional[str] = Form(None),  # "gratis", "balanceado", "premium"
+    db: Session = Depends(get_db)
+):
+    """
+    OCR Inteligente Híbrido - Escolhe automaticamente o melhor engine!
+
+    Modos:
+    - "gratis": Só EasyOCR (100% grátis, offline)
+    - "balanceado": EasyOCR → Google (1000/mês grátis)
+    - "premium": EasyOCR → Google → Claude (máxima precisão)
+    - None: Automático (tenta grátis primeiro)
+    """
+    try:
+        from app.utils.ocr_hibrido import get_ocr_hibrido
+
+        # Ler imagem
+        contents = await file.read()
+
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="Arquivo deve ser uma imagem")
+
+        # Criar OCR híbrido
+        ocr = get_ocr_hibrido()
+
+        # Determinar preferências do usuário
+        usuario_prefere_gratis = modo == "gratis" or modo is None
+        usuario_tem_creditos = modo == "premium"
+        modo_forcado = None
+
+        if modo == "gratis":
+            modo_forcado = "easyocr"
+        elif modo == "premium":
+            # Deixa o sistema decidir (tentará todos até funcionar)
+            pass
+
+        # Processar nota fiscal
+        resultado = ocr.processar_nota_fiscal(
+            imagem_bytes=contents,
+            usuario_prefere_gratis=usuario_prefere_gratis,
+            usuario_tem_creditos_api=usuario_tem_creditos,
+            modo_forcado=modo_forcado
+        )
+
+        # Verificar se houve sucesso
+        if not resultado.get('sucesso', False):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao processar nota: {resultado.get('erro', 'Erro desconhecido')}"
+            )
+
+        # Validar produtos
+        produtos_extraidos = resultado.get('produtos', [])
+
+        if not produtos_extraidos:
+            return {
+                "sucesso": True,
+                "mensagem": "Nenhum produto encontrado na nota fiscal",
+                "produtos_adicionados": 0,
+                "engine_usada": resultado.get('metadados', {}).get('engine', 'Desconhecido'),
+                "confianca": resultado.get('confianca', 0)
+            }
+
+        # Adicionar produtos ao banco
+        supermercado = resultado.get('supermercado', 'Supermercado')
+        data_compra_str = resultado.get('data_compra')
+
+        if data_compra_str:
+            try:
+                data_compra = datetime.fromisoformat(data_compra_str)
+            except:
+                data_compra = datetime.now()
+        else:
+            data_compra = datetime.now()
+
+        produtos_adicionados = []
+        crypto_manager = CryptoManager(db)
+
+        for produto_data in produtos_extraidos:
+            # Buscar ou criar produto
+            produto = db.query(Produto).filter(
+                func.lower(Produto.nome) == func.lower(produto_data['nome'])
+            ).first()
+
+            if not produto:
+                produto = Produto(
+                    nome=produto_data['nome'],
+                    categoria='Geral'
+                )
+                db.add(produto)
+                db.flush()
+
+            # Criar preço
+            preco = Preco(
+                produto_id=produto.id,
+                supermercado=supermercado,
+                preco=produto_data['preco'],
+                data_coleta=data_compra,
+                manual=True,
+                disponivel=True,
+                url=None
+            )
+            db.add(preco)
+            db.flush()
+
+            produtos_adicionados.append({
+                "produto_id": produto.id,
+                "nome": produto.nome,
+                "preco": preco.preco,
+                "supermercado": supermercado
+            })
+
+        # Recompensar usuário
+        tokens_ganhos = 0
+        if usuario_nome:
+            tokens_por_produto = 10
+            total_tokens = len(produtos_adicionados) * tokens_por_produto
+
+            try:
+                crypto_manager.adicionar_tokens(
+                    usuario_nome,
+                    total_tokens,
+                    f"Contribuição via OCR: {len(produtos_adicionados)} produtos"
+                )
+                tokens_ganhos = total_tokens
+            except:
+                pass
+
+        db.commit()
+
+        return {
+            "sucesso": True,
+            "mensagem": f"{len(produtos_adicionados)} produtos adicionados!",
+            "produtos_adicionados": len(produtos_adicionados),
+            "produtos": produtos_adicionados[:10],  # Primeiros 10
+            "tokens_ganhos": tokens_ganhos,
+            "engine_usada": resultado.get('metadados', {}).get('decisao', {}).get('engine_escolhida', 'Desconhecido'),
+            "confianca": resultado.get('confianca', 0),
+            "dados_extraidos": {
+                "supermercado": resultado.get('supermercado'),
+                "data_compra": resultado.get('data_compra'),
+                "total": resultado.get('total')
+            },
+            "metadados": resultado.get('metadados', {})
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
 
 

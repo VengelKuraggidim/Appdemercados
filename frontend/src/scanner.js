@@ -166,35 +166,20 @@ async function processarNotaFiscal() {
 
     console.log('Usuário logado:', usuarioLogado);
 
-    // Obter localização (se disponível)
-    let latitude = null;
-    let longitude = null;
-
-    if ('geolocation' in navigator) {
-        try {
-            const position = await new Promise((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(resolve, reject);
-            });
-            latitude = position.coords.latitude;
-            longitude = position.coords.longitude;
-        } catch (e) {
-            console.log('Localização não disponível');
-        }
-    }
+    // Perguntar qual modo de OCR usar
+    const modo = await perguntarModoOCR();
+    if (!modo) return; // Usuário cancelou
 
     // Criar FormData
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('usuario_nome', usuarioLogado);
-
-    if (latitude && longitude) {
-        formData.append('latitude', latitude);
-        formData.append('longitude', longitude);
-    }
+    formData.append('modo', modo);
 
     // DEBUG: Verificar FormData
     console.log('=== DEBUG FormData ===');
     console.log('Usuario logado:', usuarioLogado);
+    console.log('Modo OCR:', modo);
     console.log('Arquivo:', selectedFile?.name);
     for (let pair of formData.entries()) {
         console.log(pair[0] + ':', pair[1]);
@@ -206,10 +191,10 @@ async function processarNotaFiscal() {
     if (scanBtn) scanBtn.disabled = true;
     errorMessage.classList.remove('show');
 
-    console.log('Enviando requisição para:', `${API_URL}/api/escanear-nota-fiscal`);
+    console.log('Enviando requisição para:', `${API_URL}/api/ocr-inteligente`);
 
     try {
-        const response = await fetch(`${API_URL}/api/escanear-nota-fiscal`, {
+        const response = await fetch(`${API_URL}/api/ocr-inteligente`, {
             method: 'POST',
             body: formData
         });
@@ -219,15 +204,29 @@ async function processarNotaFiscal() {
         const data = await response.json();
 
         if (!data.sucesso) {
-            showError(data.erro || 'Erro ao processar nota fiscal');
+            showError(data.mensagem || data.erro || 'Erro ao processar nota fiscal');
             return;
         }
 
-        // Mostrar resultados
-        mostrarResultados(data);
+        // Adaptar dados para mostrar resultados
+        const dadosAdaptados = {
+            sucesso: true,
+            supermercado: data.dados_extraidos.supermercado || 'Supermercado',
+            total_produtos: data.produtos_adicionados,
+            data_compra: data.dados_extraidos.data_compra,
+            total_nota: data.dados_extraidos.total,
+            soma_produtos: data.produtos.reduce((sum, p) => sum + p.preco, 0),
+            produtos_salvos: data.produtos,
+            tokens_ganhos: data.tokens_ganhos,
+            engine_usada: data.engine_usada,
+            confianca: data.confianca
+        };
 
-        // Mostrar mensagem de sucesso
-        mostrarMensagemSucesso(data);
+        // Mostrar resultados
+        mostrarResultados(dadosAdaptados);
+
+        // Mostrar mensagem de sucesso com info da engine
+        mostrarMensagemSucessoComEngine(dadosAdaptados);
 
     } catch (error) {
         console.error('Erro:', error);
@@ -235,6 +234,209 @@ async function processarNotaFiscal() {
     } finally {
         loading.classList.remove('show');
     }
+}
+
+async function perguntarModoOCR() {
+    return new Promise((resolve) => {
+        // Criar modal de seleção
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        `;
+
+        modal.innerHTML = `
+            <div style="background: white; max-width: 500px; border-radius: 16px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin: 0 0 20px 0; color: #333;">🔍 Escolha o Modo de OCR</h2>
+
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <!-- Modo Grátis -->
+                    <button id="modo-gratis" style="
+                        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+                        color: white;
+                        border: none;
+                        padding: 20px;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        text-align: left;
+                        transition: transform 0.2s;
+                    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">
+                            💚 Grátis (EasyOCR)
+                        </div>
+                        <div style="font-size: 14px; opacity: 0.9;">
+                            100% grátis, offline, ~70% precisão
+                        </div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+                            ✅ Sem custos | ⚡ Rápido (5s)
+                        </div>
+                    </button>
+
+                    <!-- Modo Automático -->
+                    <button id="modo-auto" style="
+                        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+                        color: white;
+                        border: none;
+                        padding: 20px;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        text-align: left;
+                        transition: transform 0.2s;
+                    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">
+                            🤖 Automático (Recomendado)
+                        </div>
+                        <div style="font-size: 14px; opacity: 0.9;">
+                            Sistema escolhe o melhor OCR automaticamente
+                        </div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+                            ✅ Melhor custo-benefício | 🎯 Precisão alta
+                        </div>
+                    </button>
+
+                    <!-- Modo Premium -->
+                    <button id="modo-premium" style="
+                        background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+                        color: white;
+                        border: none;
+                        padding: 20px;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        text-align: left;
+                        transition: transform 0.2s;
+                    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">
+                            ⭐ Premium (Claude Vision)
+                        </div>
+                        <div style="font-size: 14px; opacity: 0.9;">
+                            Máxima precisão com IA da Anthropic
+                        </div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">
+                            💰 ~R$ 0,20/nota | 🎯 ~99% precisão
+                        </div>
+                    </button>
+
+                    <button id="modo-cancelar" style="
+                        background: #f5f5f5;
+                        color: #666;
+                        border: none;
+                        padding: 15px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        margin-top: 10px;
+                    ">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Event listeners
+        document.getElementById('modo-gratis').onclick = () => {
+            modal.remove();
+            resolve('gratis');
+        };
+
+        document.getElementById('modo-auto').onclick = () => {
+            modal.remove();
+            resolve(null); // null = automático
+        };
+
+        document.getElementById('modo-premium').onclick = () => {
+            modal.remove();
+            resolve('premium');
+        };
+
+        document.getElementById('modo-cancelar').onclick = () => {
+            modal.remove();
+            resolve(null);
+            if (scanBtn) scanBtn.disabled = false;
+        };
+    });
+}
+
+function mostrarMensagemSucessoComEngine(data) {
+    // Criar notificação de sucesso
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        color: white;
+        padding: 20px 30px;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        z-index: 10000;
+        animation: slideInRight 0.5s ease-out;
+        max-width: 400px;
+    `;
+
+    const produtosTexto = data.total_produtos === 1 ? '1 produto' : `${data.total_produtos} produtos`;
+    const tokensTexto = data.tokens_ganhos ? `<div style="font-size: 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.3);">💎 +${data.tokens_ganhos} tokens ganhos!</div>` : '';
+
+    const engineInfo = data.engine_usada ? `<div style="font-size: 12px; margin-top: 5px; opacity: 0.8;">🤖 ${data.engine_usada} ${data.confianca ? `(${data.confianca.toFixed(1)}%)` : ''}</div>` : '';
+
+    notification.innerHTML = `
+        <div style="display: flex; align-items: start; gap: 15px;">
+            <div style="font-size: 32px;">✅</div>
+            <div style="flex: 1;">
+                <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">
+                    Nota Escaneada com Sucesso!
+                </div>
+                <div style="font-size: 14px; opacity: 0.9;">
+                    ${produtosTexto} salvos no banco de dados
+                </div>
+                ${engineInfo}
+                ${tokensTexto}
+            </div>
+        </div>
+    `;
+
+    // Adicionar estilo de animação
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    document.body.appendChild(notification);
+
+    // Remover após 5 segundos
+    setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.5s ease-in';
+        setTimeout(() => notification.remove(), 500);
+    }, 5000);
 }
 
 function mostrarMensagemSucesso(data) {

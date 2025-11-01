@@ -77,3 +77,4 @@ class BuscaRequest(BaseModel):
     supermercados: Optional[List[Supermercado]] = None
     latitude: Optional[float] = None  # Latitude do usuário para ordenação por proximidade
     longitude: Optional[float] = None  # Longitude do usuário para ordenação por proximidade
+    distancia_maxima_km: Optional[float] = 5.0  # Distância máxima em km (padrão: 5km)
