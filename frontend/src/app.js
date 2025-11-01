@@ -234,7 +234,7 @@ function exibirResultados(produtos, comGeolocalizacao = false) {
         let geoInfo = '';
 
         // Se tem distância mas não é busca otimizada, mostrar apenas a distância
-        if (!comGeolocalizacao && produtoTemDistancia) {
+        if (!comGeolocalizacao && produtoTemDistancia && produto.distancia_km !== null) {
             geoInfo = `
                 <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 6px;">
                     <span style="font-size: 18px;">📍</span>
