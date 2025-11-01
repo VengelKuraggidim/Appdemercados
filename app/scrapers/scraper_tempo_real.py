@@ -1,6 +1,7 @@
 """
 Scraper otimizado para busca em tempo real sob demanda
 Usa APIs internas dos supermercados quando possível
+E se necessário, usa Selenium com comportamento humano
 """
 from typing import List, Dict, Optional
 import requests
@@ -198,9 +199,10 @@ class ScraperTempoReal:
 
         return produtos
 
-    def buscar_todos(self, termo: str, max_por_fonte: int = 10) -> List[Dict]:
+    def buscar_todos(self, termo: str, max_por_fonte: int = 10, usar_selenium: bool = True) -> List[Dict]:
         """
         Busca em todas as fontes disponíveis
+        Se usar_selenium=True, usa scraper humano como fallback
         """
         print(f"\n🔍 Buscando preços REAIS de '{termo}'...")
 
@@ -220,6 +222,27 @@ class ScraperTempoReal:
                 todos_produtos.extend(produtos[:max_por_fonte])
             except Exception as e:
                 print(f"   ✗ Erro em {nome_fonte}: {e}")
+
+        # Se não encontrou produtos suficientes E selenium está ativado, usar scraper humano
+        if usar_selenium and len(todos_produtos) < 5:
+            print(f"\n   ⚡ Poucos produtos encontrados ({len(todos_produtos)}), usando Scraper Humano...")
+            try:
+                from app.scrapers.scraper_humano import get_scraper_humano
+
+                scraper_humano = get_scraper_humano(headless=True)
+
+                # Buscar nos mercados principais
+                produtos_selenium = scraper_humano.buscar_todos(
+                    termo,
+                    mercados=['carrefour', 'pao_acucar']
+                )
+
+                if produtos_selenium:
+                    print(f"   ✅ Scraper Humano encontrou {len(produtos_selenium)} produtos adicionais!")
+                    todos_produtos.extend(produtos_selenium)
+
+            except Exception as e:
+                print(f"   ⚠️  Erro ao usar Scraper Humano: {e}")
 
         # Remover duplicatas
         produtos_unicos = {}
