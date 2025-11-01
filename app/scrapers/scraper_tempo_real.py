@@ -205,7 +205,9 @@ class ScraperTempoReal:
         max_por_fonte: int = 10,
         usar_selenium: bool = False,
         usar_scraper_real: bool = False,  # Desativado: muito lento (15-30s)
-        usar_gerador_fallback: bool = True  # Usar gerador (instantâneo)
+        usar_gerador_fallback: bool = True,  # Usar gerador (instantâneo)
+        lat_usuario: float = None,  # NOVO: Coordenadas do usuário
+        lon_usuario: float = None
     ) -> List[Dict]:
         """
         Busca produtos sob demanda
@@ -227,7 +229,9 @@ class ScraperTempoReal:
             try:
                 from app.scrapers.gerador_produtos import gerador_produtos
                 print("   🎲 Gerando produtos realistas...")
-                return gerador_produtos.gerar_produtos(termo, quantidade=15)
+                return gerador_produtos.gerar_produtos(termo, quantidade=15,
+                                                      lat_usuario=lat_usuario,
+                                                      lon_usuario=lon_usuario)
             except Exception as e:
                 print(f"   ❌ Erro no gerador: {e}")
                 # Continuar com outros métodos se gerador falhar
@@ -250,7 +254,9 @@ class ScraperTempoReal:
                     if usar_gerador_fallback:
                         print("   🎲 Usando gerador como fallback...")
                         from app.scrapers.gerador_produtos import gerador_produtos
-                        return gerador_produtos.gerar_produtos(termo, quantidade=15)
+                        return gerador_produtos.gerar_produtos(termo, quantidade=15,
+                                                              lat_usuario=lat_usuario,
+                                                              lon_usuario=lon_usuario)
 
             except Exception as e:
                 print(f"   ❌ Erro no scraping real: {e}")
@@ -259,7 +265,9 @@ class ScraperTempoReal:
                 if usar_gerador_fallback:
                     print("   🎲 Usando gerador como fallback...")
                     from app.scrapers.gerador_produtos import gerador_produtos
-                    return gerador_produtos.gerar_produtos(termo, quantidade=15)
+                    return gerador_produtos.gerar_produtos(termo, quantidade=15,
+                                                          lat_usuario=lat_usuario,
+                                                          lon_usuario=lon_usuario)
 
         # Scraper unificado (tentará scraping real - não funciona bem)
         if usar_scraper_unificado:
@@ -272,7 +280,9 @@ class ScraperTempoReal:
                 if not produtos and usar_gerador:
                     print("   ⚠️  Scraping falhou, usando gerador...")
                     from app.scrapers.gerador_produtos import gerador_produtos
-                    return gerador_produtos.gerar_produtos(termo, quantidade=15)
+                    return gerador_produtos.gerar_produtos(termo, quantidade=15,
+                                                          lat_usuario=lat_usuario,
+                                                          lon_usuario=lon_usuario)
 
                 return produtos
             except Exception as e:
@@ -282,7 +292,9 @@ class ScraperTempoReal:
                 if usar_gerador:
                     print("   🎲 Usando gerador como fallback...")
                     from app.scrapers.gerador_produtos import gerador_produtos
-                    return gerador_produtos.gerar_produtos(termo, quantidade=15)
+                    return gerador_produtos.gerar_produtos(termo, quantidade=15,
+                                                          lat_usuario=lat_usuario,
+                                                          lon_usuario=lon_usuario)
 
         # Método tradicional (fallback)
         todos_produtos = []

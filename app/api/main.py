@@ -180,7 +180,12 @@ async def buscar_produtos(
         print(f"\n🔍 Usuário buscou '{request.termo}' - Iniciando scraping em tempo real...")
 
         # Usar scraper otimizado para tempo real
-        produtos_scraped = scraper_tempo_real.buscar_todos(request.termo, max_por_fonte=10)
+        produtos_scraped = scraper_tempo_real.buscar_todos(
+            request.termo,
+            max_por_fonte=10,
+            lat_usuario=request.latitude,
+            lon_usuario=request.longitude
+        )
 
         # Salvar novos produtos no banco
         for item in produtos_scraped:

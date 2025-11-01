@@ -90,10 +90,12 @@ class GeradorProdutos:
 
         return 'default'
 
-    def gerar_produtos(self, termo: str, quantidade: int = 15) -> List[Dict]:
+    def gerar_produtos(self, termo: str, quantidade: int = 15, lat_usuario: float = None, lon_usuario: float = None) -> List[Dict]:
         """
         Gera produtos baseado no termo de busca
         Sempre retorna os mesmos produtos para o mesmo termo
+
+        Se lat_usuario e lon_usuario forem fornecidos, gera coordenadas próximas
         """
         print(f"\n{'='*60}")
         print(f"🎲 GERADOR DE PRODUTOS: '{termo}'")
@@ -142,6 +144,24 @@ class GeradorProdutos:
             url_slug = termo.lower().replace(' ', '-')
             url = f"https://www.{supermercado.lower().replace(' ', '')}.com.br/produto/{url_slug}-{marca.lower().replace(' ', '-')}-{i}"
 
+            # Gerar coordenadas GPS fictícias próximas ao usuário (se fornecidas)
+            latitude = None
+            longitude = None
+            endereco = None
+
+            if lat_usuario is not None and lon_usuario is not None:
+                # Gerar coordenadas em um raio de até 10km do usuário
+                # ~0.01 grau = ~1.1km
+                offset_lat = random.uniform(-0.09, 0.09)  # ~10km
+                offset_lon = random.uniform(-0.09, 0.09)  # ~10km
+
+                latitude = lat_usuario + offset_lat
+                longitude = lon_usuario + offset_lon
+
+                # Gerar endereço fictício mas realista
+                ruas = ['Av. Paulista', 'Rua Augusta', 'Av. Brasil', 'Rua Consolação', 'Av. Faria Lima']
+                endereco = f"{random.choice(ruas)}, {random.randint(100, 9999)}"
+
             produtos.append({
                 'nome': nome,
                 'marca': marca,
@@ -151,7 +171,10 @@ class GeradorProdutos:
                 'url': url,
                 'supermercado': supermercado,
                 'disponivel': True,
-                'fonte': 'gerador_sob_demanda'
+                'fonte': 'gerador_sob_demanda',
+                'latitude': latitude,
+                'longitude': longitude,
+                'endereco': endereco
             })
 
         # Resetar seed
