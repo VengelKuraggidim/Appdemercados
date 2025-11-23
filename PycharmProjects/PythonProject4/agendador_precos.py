@@ -5,6 +5,7 @@ Executa atualizações periódicas usando APScheduler
 """
 import sys
 import os
+import logging
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -15,12 +16,23 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from atualizar_precos import atualizar_precos_produtos, atualizar_produtos_principais
 
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/agendador_precos.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 def executar_atualizacao_completa():
     """Executa atualização completa"""
-    print(f"\n{'='*60}")
-    print(f"🤖 ATUALIZAÇÃO AUTOMÁTICA INICIADA")
-    print(f"{'='*60}")
+    logger.info("="*60)
+    logger.info("🤖 ATUALIZAÇÃO AUTOMÁTICA INICIADA")
+    logger.info("="*60)
 
     try:
         # Atualizar produtos existentes
@@ -29,45 +41,38 @@ def executar_atualizacao_completa():
         # Atualizar produtos básicos
         atualizar_produtos_principais()
 
-        print(f"\n✅ Atualização automática concluída com sucesso!")
+        logger.info("✅ Atualização automática concluída com sucesso!")
 
     except Exception as e:
-        print(f"\n❌ Erro na atualização: {str(e)}")
+        logger.error(f"❌ Erro na atualização: {str(e)}", exc_info=True)
 
 
 def executar_atualizacao_rapida():
     """Executa atualização rápida (apenas produtos existentes)"""
-    print(f"\n{'='*60}")
-    print(f"⚡ ATUALIZAÇÃO RÁPIDA INICIADA")
-    print(f"{'='*60}")
+    logger.info("="*60)
+    logger.info("⚡ ATUALIZAÇÃO RÁPIDA INICIADA")
+    logger.info("="*60)
 
     try:
         atualizar_precos_produtos()
-        print(f"\n✅ Atualização rápida concluída!")
+        logger.info("✅ Atualização rápida concluída!")
 
     except Exception as e:
-        print(f"\n❌ Erro na atualização: {str(e)}")
+        logger.error(f"❌ Erro na atualização: {str(e)}", exc_info=True)
 
 
 def iniciar_agendador():
     """Inicia o agendador de tarefas"""
+    from apscheduler.triggers.interval import IntervalTrigger
+
     scheduler = BackgroundScheduler()
 
-    # Atualização completa: Todos os dias às 6h e 18h
+    # Atualização automática: A cada 7 horas
     scheduler.add_job(
         executar_atualizacao_completa,
-        CronTrigger(hour='6,18', minute=0),
-        id='atualizacao_completa',
-        name='Atualização Completa de Preços',
-        replace_existing=True
-    )
-
-    # Atualização rápida: A cada 4 horas
-    scheduler.add_job(
-        executar_atualizacao_rapida,
-        CronTrigger(hour='*/4'),
-        id='atualizacao_rapida',
-        name='Atualização Rápida de Preços',
+        IntervalTrigger(hours=7),
+        id='atualizacao_7h',
+        name='Atualização Automática de Preços (7h)',
         replace_existing=True
     )
 
@@ -76,9 +81,8 @@ def iniciar_agendador():
     print(f"\n{'='*60}")
     print(f"📅 AGENDADOR DE PREÇOS INICIADO")
     print(f"{'='*60}")
-    print(f"\n⏰ Tarefas agendadas:")
-    print(f"   • Atualização Completa: Diariamente às 6h e 18h")
-    print(f"   • Atualização Rápida: A cada 4 horas")
+    print(f"\n⏰ Tarefa agendada:")
+    print(f"   • Atualização Automática: A cada 7 horas")
     print(f"\n💡 Próximas execuções:")
 
     for job in scheduler.get_jobs():

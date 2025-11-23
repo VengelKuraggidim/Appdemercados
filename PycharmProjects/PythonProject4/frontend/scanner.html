@@ -265,6 +265,11 @@
         <div class="header">
             <h1>📸 Scanner de Nota Fiscal</h1>
             <p>Tire uma foto da sua nota fiscal e ganhe tokens por cada produto extraído!</p>
+
+            <!-- Login Status -->
+            <div id="loginStatus" style="margin-top: 15px; padding: 12px; border-radius: 8px; display: none;">
+                <span id="loginStatusText"></span>
+            </div>
         </div>
 
         <div class="scanner-card">
@@ -315,6 +320,26 @@
         <div class="error-message" id="errorMessage"></div>
     </div>
 
-    <script src="/src/scanner.js?v=3"></script>
+    <script src="/src/scanner.js?v=5"></script>
+    <script>
+        // Verificar status de login ao carregar página
+        window.addEventListener('DOMContentLoaded', () => {
+            const usuarioLogado = localStorage.getItem('usuario_nome');
+            const loginStatus = document.getElementById('loginStatus');
+            const loginStatusText = document.getElementById('loginStatusText');
+
+            if (!usuarioLogado || usuarioLogado === 'null' || usuarioLogado === '') {
+                loginStatus.style.display = 'block';
+                loginStatus.style.background = '#ffebee';
+                loginStatus.style.border = '2px solid #f44336';
+                loginStatusText.innerHTML = '⚠️ <strong>Você não está logado!</strong> <a href="/index.html" style="color: #f44336; text-decoration: underline;">Clique aqui para fazer login</a>';
+            } else {
+                loginStatus.style.display = 'block';
+                loginStatus.style.background = '#e8f5e9';
+                loginStatus.style.border = '2px solid #4CAF50';
+                loginStatusText.innerHTML = `✅ Logado como: <strong>${usuarioLogado}</strong>`;
+            }
+        });
+    </script>
 </body>
 </html>

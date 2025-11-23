@@ -6,6 +6,12 @@
     <meta name="theme-color" content="#4CAF50">
     <meta name="description" content="Compare preços de produtos em diferentes supermercados">
 
+    <!-- Desabilitar cache -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="version" content="2.0.6">
+
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
@@ -713,6 +719,91 @@
                 opacity: 0;
             }
         }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Avatar com borda colorida */
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        /* Botões de votação */
+        .comment-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 0;
+        }
+
+        .vote-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .vote-btn:hover:not(:disabled) {
+            background: #e0e0e0;
+            transform: scale(1.05);
+        }
+
+        .vote-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .vote-btn.voted {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        .vote-btn span {
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -793,6 +884,10 @@
                 <span class="menu-item-icon">💰</span>
                 Carteira
             </a>
+            <a href="#" class="menu-item" onclick="mostrarDAO(); return false;">
+                <span class="menu-item-icon">🏛️</span>
+                DAO - Governança
+            </a>
             <a href="/contribuicoes.html" class="menu-item">
                 <span class="menu-item-icon">👥</span>
                 Ver Contribuições
@@ -870,7 +965,7 @@
             <div style="background: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
                 <h2 style="font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
                     💰 Minha Carteira
-                    <button onclick="voltarComparador()" style="margin-left: auto; background: #e0e0e0; color: #333; padding: 8px 16px; font-size: 14px;">← Voltar</button>
+                    <button onclick="voltarComparador()" style="margin-left: auto; background: #e0e0e0; color: #333; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer;">← Voltar</button>
                 </h2>
 
                 <!-- Saldo -->
@@ -878,6 +973,33 @@
                     <div style="font-size: 14px; opacity: 0.9; margin-bottom: 10px;">Saldo Disponível</div>
                     <div style="font-size: 48px; font-weight: bold;" id="carteiraViewSaldo">0</div>
                     <div style="font-size: 16px; opacity: 0.9;">tokens</div>
+
+                    <!-- Botão de dicas de tokens -->
+                    <div style="margin-top: 20px;">
+                        <button onclick="document.getElementById('dicasTokens').style.display = document.getElementById('dicasTokens').style.display === 'none' ? 'block' : 'none'"
+                                style="width: 100%; padding: 10px; background: rgba(255,255,255,0.2); border: none; border-radius: 8px; color: white; font-size: 13px; cursor: pointer; text-align: left; transition: background 0.3s;">
+                            <strong>💡 Como ganhar tokens?</strong> <span style="float: right;">▼</span>
+                        </button>
+                        <div id="dicasTokens" style="display: none; margin-top: 8px; padding: 12px; background: rgba(255,255,255,0.2); border-radius: 8px; font-size: 13px; line-height: 1.6;">
+                            <div style="margin-bottom: 10px;">
+                                <strong>💰 Ganhar Tokens:</strong>
+                            </div>
+                            <div style="margin-left: 12px;">
+                                • <strong>+10 tokens</strong> - Adicionar preço manualmente<br>
+                                • <strong>+5 tokens</strong> - Adicionar preço com foto<br>
+                                • <strong>+2 tokens</strong> - Validar preço de outro usuário<br>
+                                • <strong>+1 token</strong> - Comentar na DAO (máx 5/dia)
+                            </div>
+                            <div style="margin-top: 12px; margin-bottom: 10px;">
+                                <strong style="color: #ffcdd2;">💸 Gastar Tokens:</strong>
+                            </div>
+                            <div style="margin-left: 12px;">
+                                <span style="color: #ffcdd2;">• <strong>-1 token</strong> - Buscar produtos</span><br>
+                                <span style="color: #ffcdd2;">• <strong>-5 tokens</strong> - Criar sugestão na DAO</span><br>
+                                <span style="color: #ffcdd2;">• <strong>-1+ tokens</strong> - Votar em sugestão (quadrático)</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Estatísticas -->
@@ -891,36 +1013,222 @@
                         <div style="font-size: 14px; color: #666; margin-top: 5px;">Total Gasto</div>
                     </div>
                     <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 32px; font-weight: bold; color: var(--secondary-color);" id="carteiraViewTransacoes">0</div>
-                        <div style="font-size: 14px; color: #666; margin-top: 5px;">Transações</div>
+                        <div style="font-size: 32px; font-weight: bold; color: var(--secondary-color);" id="carteiraViewSugestoes">0</div>
+                        <div style="font-size: 14px; color: #666; margin-top: 5px;">Sugestões DAO</div>
                     </div>
                 </div>
 
-                <!-- Histórico de Transações -->
+                <!-- Reputação -->
+                <div id="cardReputacao" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); transition: all 0.3s;">
+                    <h3 style="font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        ⭐ Sistema de Reputação
+                    </h3>
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 64px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);" id="carteiraReputacao">100</div>
+                        <div style="font-size: 16px; opacity: 0.9; margin-top: 10px;">Pontos de Reputação</div>
+                        <div style="display: inline-block; margin-top: 10px; padding: 8px 20px; background: rgba(255,255,255,0.2); border-radius: 20px; font-size: 14px; font-weight: 600;" id="carteiraNivelConfianca">
+                            🌟 Confiável
+                        </div>
+                    </div>
+
+                    <!-- Barra de progresso visual -->
+                    <div style="margin: 20px 0;">
+                        <div style="background: rgba(255,255,255,0.2); height: 12px; border-radius: 6px; overflow: hidden;">
+                            <div id="barraReputacao" style="background: linear-gradient(90deg, #4CAF50, #8BC34A); height: 100%; width: 50%; transition: width 0.5s, background 0.5s; border-radius: 6px;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; opacity: 0.8;">
+                            <span>0</span>
+                            <span>100</span>
+                            <span>200</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button onclick="document.getElementById('dicasReputacao').style.display = document.getElementById('dicasReputacao').style.display === 'none' ? 'block' : 'none'"
+                                style="width: 100%; padding: 10px; background: rgba(255,255,255,0.15); border: none; border-radius: 8px; color: white; font-size: 13px; cursor: pointer; text-align: left; transition: background 0.3s;">
+                            <strong>💡 Como ganhar reputação?</strong> <span style="float: right;">▼</span>
+                        </button>
+                        <div id="dicasReputacao" style="display: none; margin-top: 8px; padding: 12px; background: rgba(255,255,255,0.15); border-radius: 8px; font-size: 13px; line-height: 1.6;">
+                            <div style="margin-left: 12px;">
+                                • <strong>+2 pts</strong> - Adicionar preço próximo da média<br>
+                                • <strong>+1 pt</strong> - Votar em sugestões da DAO<br>
+                                • <strong>+0.5 pts</strong> - Comentar na DAO (máx 5/dia)<br>
+                                • <strong>+0.1 pts</strong> - Receber like em comentário<br>
+                                • <strong>+15 pts</strong> - Sugestão aprovada (60% votos)<br>
+                                • <strong>+25 pts</strong> - Sugestão implementada<br>
+                                <span style="color: #ffcdd2;">• <strong>-0.1 pts</strong> - Receber dislike em comentário</span><br>
+                                <span style="color: #ffcdd2;">• <strong>-5 pts</strong> - Preço muito diferente da média</span><br>
+                                <span style="color: #ffcdd2;">• <strong>-5 pts</strong> - Sugestão rejeitada</span>
+                            </div>
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);">
+                                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">🏆 Níveis de Reputação:</div>
+                                <div style="margin-left: 12px; font-size: 11px; line-height: 1.8;">
+                                    👑 <strong>180+ pts</strong> - Lendário<br>
+                                    💎 <strong>150-179 pts</strong> - Excelente<br>
+                                    ⭐ <strong>120-149 pts</strong> - Muito Bom<br>
+                                    🌟 <strong>100-119 pts</strong> - Confiável<br>
+                                    ⚠️ <strong>70-99 pts</strong> - Regular<br>
+                                    ⚠️ <strong>40-69 pts</strong> - Atenção<br>
+                                    ❌ <strong>&lt;40 pts</strong> - Crítico
+                                </div>
+                            </div>
+                            <div style="margin-top: 12px; font-size: 12px; opacity: 0.9; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);">
+                                ⚡ <strong>Validação automática:</strong> Seus preços são comparados com outros do mesmo produto automaticamente!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Minhas Sugestões -->
                 <div>
-                    <h3 style="font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                        📜 Histórico de Transações
+                    <h3 style="font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; justify-content: space-between;">
+                        <span>💡 Minhas Sugestões na DAO</span>
+                        <button onclick="abrirHistoricoCompleto()" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; transition: all 0.3s;">
+                            📜 Ver Histórico Completo
+                        </button>
                     </h3>
                     <div id="carteiraHistorico" style="max-height: 400px; overflow-y: auto;">
                         <!-- Será preenchido dinamicamente -->
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Como ganhar tokens -->
-                <div style="background: #f5f5f5; padding: 20px; border-radius: 10px; margin-top: 30px;">
-                    <h4 style="font-size: 16px; margin-bottom: 10px;">💡 Como ganhar tokens?</h4>
-                    <ul style="margin-left: 20px; line-height: 2;">
-                        <li><strong>+10 tokens</strong> - Adicionar preço de produto</li>
-                        <li><strong>+10 tokens</strong> - Escanear nota fiscal (por produto)</li>
-                        <li><strong>+5 tokens</strong> - Bônus de cadastro (apenas uma vez)</li>
-                    </ul>
-                    <h4 style="font-size: 16px; margin: 15px 0 10px 0;">💸 Como gastar tokens?</h4>
-                    <ul style="margin-left: 20px; line-height: 2;">
-                        <li><strong>-1 token</strong> - Buscar produtos</li>
-                    </ul>
+        <!-- Modal de Histórico Completo -->
+        <div id="modalHistorico" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto;">
+            <div style="max-width: 900px; margin: 40px auto; background: white; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); position: relative;">
+                <!-- Header do Modal -->
+                <div style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; padding: 25px 30px; border-radius: 16px 16px 0 0; display: flex; align-items: center; justify-content: space-between;">
+                    <h2 style="margin: 0; font-size: 24px; display: flex; align-items: center; gap: 12px;">
+                        📜 Histórico Completo
+                    </h2>
+                    <button onclick="fecharHistoricoCompleto()" style="background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; transition: background 0.3s;">
+                        ✕
+                    </button>
+                </div>
+
+                <!-- Abas de Navegação -->
+                <div style="display: flex; border-bottom: 2px solid #e0e0e0; background: #f8f9fa;">
+                    <button id="tabTransacoes" onclick="trocarAbaHistorico('transacoes')" style="flex: 1; padding: 15px; border: none; background: transparent; cursor: pointer; font-size: 15px; font-weight: 500; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent;">
+                        💰 Transações de Tokens
+                    </button>
+                    <button id="tabReputacao" onclick="trocarAbaHistorico('reputacao')" style="flex: 1; padding: 15px; border: none; background: transparent; cursor: pointer; font-size: 15px; font-weight: 500; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent;">
+                        ⭐ Mudanças de Reputação
+                    </button>
+                    <button id="tabAtividades" onclick="trocarAbaHistorico('atividades')" style="flex: 1; padding: 15px; border: none; background: transparent; cursor: pointer; font-size: 15px; font-weight: 500; color: #666; transition: all 0.3s; border-bottom: 3px solid transparent;">
+                        📊 Todas Atividades
+                    </button>
+                </div>
+
+                <!-- Conteúdo do Modal -->
+                <div style="padding: 30px; max-height: 600px; overflow-y: auto;">
+                    <!-- Aba Transações -->
+                    <div id="conteudoTransacoes" style="display: block;">
+                        <div id="listaTransacoes">
+                            <!-- Será preenchido dinamicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Aba Reputação -->
+                    <div id="conteudoReputacao" style="display: none;">
+                        <div id="listaReputacao">
+                            <!-- Será preenchido dinamicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Aba Todas Atividades -->
+                    <div id="conteudoAtividades" style="display: none;">
+                        <div id="listaAtividades">
+                            <!-- Será preenchido dinamicamente -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- DAO View (Oculto por padrão) -->
+        <div id="daoView" style="display: none;">
+            <div style="background: var(--card-bg); border-radius: 12px; padding: 30px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
+                <h2 style="font-size: 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    🏛️ DAO - Governança Comunitária
+                    <button onclick="voltarComparador()" style="margin-left: auto; background: #e0e0e0; color: #333; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer;">← Voltar</button>
+                </h2>
+
+                <!-- Tabs DAO -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; align-items: center;">
+                    <button id="tabComentariosBtn" onclick="mostrarTabDAO('comentarios')" style="padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: var(--primary-color); border-bottom: 3px solid var(--primary-color);">
+                        💬 Comentários
+                    </button>
+                    <button id="tabSugestoesBtn" onclick="mostrarTabDAO('sugestoes')" style="padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; border-bottom: 3px solid transparent;">
+                        💡 Sugestões
+                    </button>
+                    <button id="tabEstatisticasDAOBtn" onclick="mostrarTabDAO('estatisticas')" style="padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; border-bottom: 3px solid transparent;">
+                        📊 Estatísticas
+                    </button>
+                    <button onclick="document.getElementById('dicasReputacaoDAO').style.display = document.getElementById('dicasReputacaoDAO').style.display === 'none' ? 'block' : 'none'"
+                            style="padding: 8px 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-left: auto;">
+                        ⭐
+                    </button>
+                </div>
+
+                <!-- Ganhos de Reputação na DAO (Colapsável) -->
+                <div id="dicasReputacaoDAO" style="display: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; font-size: 13px;">
+                    <strong style="font-size: 15px;">⭐ Ganhe Reputação Participando:</strong>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;">
+                        <span>💬 Comentários: <strong>+0.5</strong></span>
+                        <span>👍 Receber like: <strong>+0.1</strong></span>
+                        <span>👎 Receber dislike: <strong style="color: #ffcdd2;">-0.1</strong></span>
+                        <span>🗳️ Votos: <strong>+1</strong></span>
+                        <span>💡 Sugestão Aprovada: <strong>+15</strong></span>
+                        <span>🎉 Implementada: <strong>+25</strong></span>
+                    </div>
+                </div>
+
+                <!-- Tab Comentários -->
+                <div id="daoTabComentarios">
+                    <div style="background: #f9f9f9; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 15px;">💬 Chat da Comunidade</h3>
+                        <textarea id="daoComentarioTexto" placeholder="Digite seu comentário..." style="width: 100%; min-height: 80px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; resize: vertical; margin-bottom: 10px;"></textarea>
+                        <button onclick="enviarComentarioDAO()" style="background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Enviar Comentário</button>
+                    </div>
+                    <div id="daoListaComentarios"></div>
+                </div>
+
+                <!-- Tab Sugestões -->
+                <div id="daoTabSugestoes" style="display: none;">
+                    <div style="background: #f9f9f9; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 10px;">💡 Criar Sugestão <span style="background: #ff9800; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; margin-left: 10px;">-5 tokens</span></h3>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                            Sugestões precisam ser aprovadas antes de entrar em votação. Votação quadrática: mais tokens = mais votos, mas com custo crescente.
+                        </p>
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px;">Título</label>
+                        <input type="text" id="daoSugestaoTitulo" placeholder="Ex: Adicionar modo escuro" maxlength="200" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 15px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px;">Descrição</label>
+                        <textarea id="daoSugestaoDescricao" placeholder="Descreva sua sugestão em detalhes..." maxlength="2000" style="width: 100%; min-height: 100px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; resize: vertical; margin-bottom: 10px;"></textarea>
+                        <button onclick="criarSugestaoDAO()" style="background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Criar Sugestão</button>
+                    </div>
+
+                    <div style="background: #f9f9f9; border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+                        <strong>Filtrar:</strong>
+                        <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                            <button onclick="filtrarSugestoesDAO('')" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Todas</button>
+                            <button onclick="filtrarSugestoesDAO('pendente_aprovacao')" style="padding: 8px 16px; background: #fff3cd; color: #856404; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Pendentes</button>
+                            <button onclick="filtrarSugestoesDAO('em_votacao')" style="padding: 8px 16px; background: #cfe2ff; color: #084298; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Em Votação</button>
+                        </div>
+                        <p style="margin-top: 10px; font-size: 13px; color: #666;">
+                            ℹ️ Sugestões aprovadas e implementadas estão na aba <strong>📊 Estatísticas</strong>
+                        </p>
+                    </div>
+
+                    <div id="daoListaSugestoes"></div>
+                </div>
+
+                <!-- Tab Estatísticas DAO -->
+                <div id="daoTabEstatisticas" style="display: none;">
+                    <div id="daoEstatisticas"></div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <div class="install-prompt" id="installPrompt">
@@ -931,7 +1239,7 @@
         </div>
     </div>
 
-    <script src="/src/app.js"></script>
+    <script src="/src/app.js?v=20250108c"></script>
     <script>
         // Não redeclarar API_URL - já existe no app.js
         const API_URL_AUTH = 'http://localhost:8000/api';
@@ -990,12 +1298,12 @@
             const senha = document.getElementById('senhaLogin').value;
 
             if (cpf.length !== 11) {
-                alert('Digite um CPF válido');
+                mostrarToastInfo('Digite um CPF válido (11 dígitos)', '📱');
                 return;
             }
 
             if (!senha || senha.length < 4) {
-                alert('Digite sua senha');
+                mostrarToastInfo('Digite sua senha (mínimo 4 caracteres)', '🔒');
                 return;
             }
 
@@ -1014,12 +1322,13 @@
                     localStorage.setItem('cpf', cpf);
                     mostrarUsuarioLogado();
                     await atualizarCarteira();
+                    mostrarToastSucesso(`Bem-vindo(a), ${data.usuario_nome}!`, '👋');
                 } else {
-                    alert(data.mensagem);
+                    mostrarToastErro(data.mensagem);
                 }
             } catch (error) {
                 console.error('Erro ao fazer login:', error);
-                alert('Erro ao conectar com o servidor');
+                mostrarToastErro('Erro ao conectar com o servidor');
             }
         }
 
@@ -1030,17 +1339,17 @@
             const senha = document.getElementById('senhaRegistro').value;
 
             if (!nome || nome.length < 3) {
-                alert('Digite um nome válido (mínimo 3 caracteres)');
+                mostrarToastInfo('Digite um nome válido (mínimo 3 caracteres)', '👤');
                 return;
             }
 
             if (cpf.length !== 11) {
-                alert('Digite um CPF válido');
+                mostrarToastInfo('Digite um CPF válido (11 dígitos)', '📱');
                 return;
             }
 
             if (!senha || senha.length < 4) {
-                alert('Senha deve ter pelo menos 4 caracteres');
+                mostrarToastInfo('Senha deve ter pelo menos 4 caracteres', '🔒');
                 return;
             }
 
@@ -1053,18 +1362,18 @@
                 const data = await response.json();
 
                 if (data.sucesso) {
-                    alert('✅ Conta criada com sucesso! Você ganhou 5 tokens de bônus!');
+                    mostrarToastSucesso('Conta criada com sucesso!<br><br>🎁 Você ganhou 5 tokens de bônus!', '🎉');
                     usuarioAtual = data.usuario_nome;
                     localStorage.setItem('usuario_nome', data.usuario_nome);
                     localStorage.setItem('cpf', cpf);
                     mostrarUsuarioLogado();
                     await atualizarCarteira();
                 } else {
-                    alert(data.mensagem);
+                    mostrarToastErro(data.mensagem);
                 }
             } catch (error) {
                 console.error('Erro ao registrar:', error);
-                alert('Erro ao conectar com o servidor');
+                mostrarToastErro('Erro ao conectar com o servidor');
             }
         }
 
@@ -1113,7 +1422,7 @@
         // Mostrar carteira (nova view)
         async function mostrarCarteira() {
             if (!usuarioAtual) {
-                alert('Faça login para acessar sua carteira');
+                mostrarToastInfo('Faça login para acessar sua carteira', '🔒');
                 return;
             }
 
@@ -1130,6 +1439,7 @@
         function voltarComparador() {
             document.getElementById('headerComparador').style.display = 'block';
             document.getElementById('carteiraView').style.display = 'none';
+            document.getElementById('daoView').style.display = 'none';
             document.getElementById('comparadorView').style.display = 'block';
         }
 
@@ -1147,36 +1457,128 @@
                     document.getElementById('carteiraViewSaldo').textContent = Math.floor(data.saldo);
                     document.getElementById('carteiraViewGanhos').textContent = Math.floor(data.total_minerado);
                     document.getElementById('carteiraViewGastos').textContent = Math.floor(data.total_gasto);
-                    document.getElementById('carteiraViewTransacoes').textContent = data.total_transacoes;
+
+                    // Atualizar reputação com sistema de cores
+                    const reputacao = data.reputacao || 100;
+                    document.getElementById('carteiraReputacao').textContent = Math.round(reputacao);
+
+                    // Calcular porcentagem para barra (0-200 pts)
+                    const porcentagem = Math.min((reputacao / 200) * 100, 100);
+                    const barraReputacao = document.getElementById('barraReputacao');
+                    barraReputacao.style.width = porcentagem + '%';
+
+                    // Sistema de cores e níveis baseado na reputação
+                    let nivelConfianca, corGradiente, corCard;
+
+                    if (reputacao >= 180) {
+                        nivelConfianca = '👑 Lendário';
+                        corGradiente = 'linear-gradient(90deg, #FFD700, #FFA500)';
+                        corCard = 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)';
+                    } else if (reputacao >= 150) {
+                        nivelConfianca = '💎 Excelente';
+                        corGradiente = 'linear-gradient(90deg, #4CAF50, #8BC34A)';
+                        corCard = 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)';
+                    } else if (reputacao >= 120) {
+                        nivelConfianca = '⭐ Muito Bom';
+                        corGradiente = 'linear-gradient(90deg, #2196F3, #64B5F6)';
+                        corCard = 'linear-gradient(135deg, #2196F3 0%, #42A5F5 100%)';
+                    } else if (reputacao >= 100) {
+                        nivelConfianca = '🌟 Confiável';
+                        corGradiente = 'linear-gradient(90deg, #667eea, #764ba2)';
+                        corCard = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                    } else if (reputacao >= 70) {
+                        nivelConfianca = '⚠️ Regular';
+                        corGradiente = 'linear-gradient(90deg, #FF9800, #FFB74D)';
+                        corCard = 'linear-gradient(135deg, #FF9800 0%, #FFA726 100%)';
+                    } else if (reputacao >= 40) {
+                        nivelConfianca = '⚠️ Atenção';
+                        corGradiente = 'linear-gradient(90deg, #FF5722, #FF7043)';
+                        corCard = 'linear-gradient(135deg, #FF5722 0%, #FF6F3F 100%)';
+                    } else {
+                        nivelConfianca = '❌ Crítico';
+                        corGradiente = 'linear-gradient(90deg, #F44336, #E57373)';
+                        corCard = 'linear-gradient(135deg, #F44336 0%, #EF5350 100%)';
+                    }
+
+                    document.getElementById('carteiraNivelConfianca').textContent = nivelConfianca;
+                    barraReputacao.style.background = corGradiente;
+                    document.getElementById('cardReputacao').style.background = corCard;
                 }
 
-                // Buscar histórico
-                const responseHistorico = await fetch(`${API_URL_AUTH}/carteira/${usuarioAtual}/historico`);
-                if (responseHistorico.ok) {
-                    const transacoes = await responseHistorico.json();
+                // Buscar sugestões do usuário
+                const responseSugestoes = await fetch(`${API_URL_AUTH}/dao/sugestoes?usuario_nome=${usuarioAtual}`);
+                if (responseSugestoes.ok) {
+                    const sugestoes = await responseSugestoes.json();
+
+                    // Atualizar contador de sugestões
+                    document.getElementById('carteiraViewSugestoes').textContent = sugestoes.length;
 
                     const historicoDiv = document.getElementById('carteiraHistorico');
 
-                    if (transacoes.length === 0) {
-                        historicoDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Nenhuma transação ainda</p>';
+                    if (sugestoes.length === 0) {
+                        historicoDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Nenhuma sugestão ainda</p>';
                     } else {
-                        let html = '';
-                        transacoes.forEach(t => {
-                            const data = new Date(t.data_transacao).toLocaleString('pt-BR');
-                            const valor = t.quantidade > 0 ? `+${t.quantidade}` : t.quantidade;
-                            const cor = t.quantidade > 0 ? '#4CAF50' : '#f44336';
-                            const bgCor = t.quantidade > 0 ? '#e8f5e9' : '#ffebee';
+                        let html = `<div style="margin-bottom: 15px; font-size: 14px; color: #666;">
+                            <strong>Total de Sugestões:</strong> ${sugestoes.length}
+                        </div>`;
+
+                        sugestoes.forEach(s => {
+                            const data = new Date(s.data_criacao).toLocaleString('pt-BR');
+
+                            // Definir cor e ícone baseado no status
+                            let cor, bgCor, iconeStatus;
+                            if (s.status === 'aprovada') {
+                                cor = '#4CAF50';
+                                bgCor = '#e8f5e9';
+                                iconeStatus = '✅ Aprovada';
+                            } else if (s.status === 'em_votacao') {
+                                cor = '#2196F3';
+                                bgCor = '#e3f2fd';
+                                iconeStatus = '🗳️ Em Votação';
+                            } else if (s.status === 'pendente_aprovacao') {
+                                cor = '#FF9800';
+                                bgCor = '#fff3cd';
+                                iconeStatus = '⏳ Pendente';
+                            } else if (s.status === 'rejeitada') {
+                                cor = '#f44336';
+                                bgCor = '#ffebee';
+                                iconeStatus = '❌ Rejeitada';
+                            } else {
+                                cor = '#9E9E9E';
+                                bgCor = '#f5f5f5';
+                                iconeStatus = s.status;
+                            }
+
+                            // Calcular saldo de votos
+                            const saldoVotos = s.total_votos_favor - s.total_votos_contra;
+                            const saldoTexto = saldoVotos > 0 ? `+${saldoVotos}` : saldoVotos;
+                            const corSaldo = saldoVotos > 0 ? '#4CAF50' : saldoVotos < 0 ? '#f44336' : '#666';
+
+                            // Ganhos (apenas se aprovada)
+                            let ganhos = '';
+                            if (s.status === 'aprovada') {
+                                ganhos = `<div style="margin-top: 8px; padding: 8px; background: #c8e6c9; border-radius: 6px; font-size: 13px;">
+                                    <strong>💰 Ganho:</strong> +10 tokens (sugestão aprovada)
+                                </div>`;
+                            }
 
                             html += `
                                 <div style="background: ${bgCor}; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 4px solid ${cor};">
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <div>
-                                            <strong style="color: ${cor}; font-size: 18px;">${valor} tokens</strong>
-                                            <div style="color: #666; font-size: 14px; margin-top: 5px;">${t.descricao || t.tipo}</div>
+                                    <div style="margin-bottom: 8px;">
+                                        <strong style="color: ${cor}; font-size: 16px;">${iconeStatus}</strong>
+                                        <div style="font-size: 15px; margin-top: 5px; font-weight: bold;">${s.titulo}</div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; font-size: 13px;">
+                                        <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 6px;">
+                                            <strong>Votos:</strong> <span style="color: ${corSaldo}; font-weight: bold;">${saldoTexto}</span> (${s.total_votos_favor} 👍 / ${s.total_votos_contra} 👎)
                                         </div>
-                                        <div style="text-align: right; font-size: 12px; color: #999;">
-                                            ${data}
+                                        <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 6px;">
+                                            <strong>Tokens Votados:</strong> ${s.total_tokens_votados}
                                         </div>
+                                    </div>
+                                    ${ganhos}
+                                    <div style="text-align: right; font-size: 12px; color: #999; margin-top: 8px;">
+                                        ${data}
                                     </div>
                                 </div>
                             `;
@@ -1186,9 +1588,386 @@
                 }
             } catch (error) {
                 console.error('Erro ao carregar dados da carteira:', error);
-                alert('Erro ao carregar dados da carteira');
+                mostrarToastErro('Erro ao carregar dados da carteira');
             }
         }
+
+        // ============================================
+        // HISTÓRICO COMPLETO (MODAL)
+        // ============================================
+
+        let abaHistoricoAtual = 'transacoes';
+
+        // Abrir modal de histórico
+        async function abrirHistoricoCompleto() {
+            document.getElementById('modalHistorico').style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Bloquear scroll da página
+
+            // Carregar primeira aba
+            await trocarAbaHistorico('transacoes');
+        }
+
+        // Fechar modal
+        function fecharHistoricoCompleto() {
+            document.getElementById('modalHistorico').style.display = 'none';
+            document.body.style.overflow = 'auto'; // Restaurar scroll
+        }
+
+        // Trocar entre abas
+        async function trocarAbaHistorico(aba) {
+            abaHistoricoAtual = aba;
+
+            // Resetar todas as abas
+            document.getElementById('tabTransacoes').style.borderBottom = '3px solid transparent';
+            document.getElementById('tabTransacoes').style.color = '#666';
+            document.getElementById('tabTransacoes').style.background = 'transparent';
+            document.getElementById('tabReputacao').style.borderBottom = '3px solid transparent';
+            document.getElementById('tabReputacao').style.color = '#666';
+            document.getElementById('tabReputacao').style.background = 'transparent';
+            document.getElementById('tabAtividades').style.borderBottom = '3px solid transparent';
+            document.getElementById('tabAtividades').style.color = '#666';
+            document.getElementById('tabAtividades').style.background = 'transparent';
+
+            // Esconder todos os conteúdos
+            document.getElementById('conteudoTransacoes').style.display = 'none';
+            document.getElementById('conteudoReputacao').style.display = 'none';
+            document.getElementById('conteudoAtividades').style.display = 'none';
+
+            // Ativar aba selecionada
+            if (aba === 'transacoes') {
+                document.getElementById('tabTransacoes').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('tabTransacoes').style.color = 'var(--primary-color)';
+                document.getElementById('tabTransacoes').style.background = 'rgba(76, 175, 80, 0.05)';
+                document.getElementById('conteudoTransacoes').style.display = 'block';
+                await carregarHistoricoTransacoes();
+            } else if (aba === 'reputacao') {
+                document.getElementById('tabReputacao').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('tabReputacao').style.color = 'var(--primary-color)';
+                document.getElementById('tabReputacao').style.background = 'rgba(76, 175, 80, 0.05)';
+                document.getElementById('conteudoReputacao').style.display = 'block';
+                await carregarHistoricoReputacao();
+            } else if (aba === 'atividades') {
+                document.getElementById('tabAtividades').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('tabAtividades').style.color = 'var(--primary-color)';
+                document.getElementById('tabAtividades').style.background = 'rgba(76, 175, 80, 0.05)';
+                document.getElementById('conteudoAtividades').style.display = 'block';
+                await carregarTodasAtividades();
+            }
+        }
+
+        // Carregar histórico de transações
+        async function carregarHistoricoTransacoes() {
+            if (!usuarioAtual) return;
+
+            const listaDiv = document.getElementById('listaTransacoes');
+            listaDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Carregando...</p>';
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/carteira/${usuarioAtual}/historico?limite=100`);
+                if (response.ok) {
+                    const transacoes = await response.json();
+
+                    if (transacoes.length === 0) {
+                        listaDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Nenhuma transação ainda</p>';
+                        return;
+                    }
+
+                    let html = `<div style="margin-bottom: 20px;">
+                        <strong>Total de Transações:</strong> ${transacoes.length}
+                    </div>`;
+
+                    transacoes.forEach(t => {
+                        const data = new Date(t.data_transacao).toLocaleString('pt-BR');
+                        const valor = t.quantidade > 0 ? `+${Math.floor(t.quantidade)}` : Math.floor(t.quantidade);
+                        const cor = t.quantidade > 0 ? '#4CAF50' : '#f44336';
+                        const bgCor = t.quantidade > 0 ? '#e8f5e9' : '#ffebee';
+                        const icone = t.quantidade > 0 ? '📥' : '📤';
+
+                        // Ícones específicos por tipo de transação
+                        let iconeEspecifico = icone;
+                        if (t.tipo === 'mineracao') iconeEspecifico = '⛏️';
+                        else if (t.tipo === 'gasto') iconeEspecifico = '💸';
+                        else if (t.tipo === 'bonus') iconeEspecifico = '🎁';
+                        else if (t.tipo === 'validacao') iconeEspecifico = '✅';
+                        else if (t.tipo === 'dao_voto') iconeEspecifico = '🗳️';
+                        else if (t.tipo === 'dao_comentario') iconeEspecifico = '💬';
+
+                        html += `
+                            <div style="background: ${bgCor}; padding: 18px; margin-bottom: 12px; border-radius: 10px; border-left: 5px solid ${cor}; transition: transform 0.2s;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                            <span style="font-size: 24px;">${iconeEspecifico}</span>
+                                            <strong style="color: ${cor}; font-size: 20px;">${valor} tokens</strong>
+                                        </div>
+                                        <div style="color: #666; font-size: 14px; margin-left: 34px;">
+                                            ${t.descricao || t.tipo}
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right; font-size: 12px; color: #999;">
+                                        ${data}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    listaDiv.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar transações:', error);
+                listaDiv.innerHTML = '<p style="text-align: center; color: #f44336; padding: 40px;">Erro ao carregar transações</p>';
+            }
+        }
+
+        // Carregar histórico de reputação
+        async function carregarHistoricoReputacao() {
+            if (!usuarioAtual) return;
+
+            const listaDiv = document.getElementById('listaReputacao');
+            listaDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Carregando...</p>';
+
+            try {
+                // Buscar validações recebidas e votos em comentários
+                const [validacoesResponse, votosResponse] = await Promise.all([
+                    fetch(`${API_URL_AUTH}/reputacao/validacoes/${usuarioAtual}?limite=100`),
+                    fetch(`${API_URL_AUTH}/dao/comentarios?limite=50&usuario_atual=${usuarioAtual}`)
+                ]);
+
+                let atividades = [];
+
+                // Processar validações (se o endpoint existir)
+                if (validacoesResponse.ok) {
+                    const validacoes = await validacoesResponse.json();
+                    validacoes.forEach(v => {
+                        atividades.push({
+                            tipo: 'validacao',
+                            data: new Date(v.data_validacao),
+                            aprovado: v.aprovado,
+                            validador: v.validador_nome,
+                            mudanca: v.aprovado ? 0.5 : -1.0,
+                            descricao: v.aprovado ? 'Preço validado como correto' : 'Preço marcado como incorreto'
+                        });
+                    });
+                }
+
+                // Processar votos em comentários
+                if (votosResponse.ok) {
+                    const comentarios = await votosResponse.json();
+                    comentarios.forEach(c => {
+                        if (c.usuario_nome === usuarioAtual) {
+                            // Calcular mudança de reputação baseado em likes/dislikes
+                            const likes = c.likes || 0;
+                            const dislikes = c.dislikes || 0;
+                            const mudanca = (likes * 0.1) - (dislikes * 0.1);
+
+                            if (mudanca !== 0) {
+                                atividades.push({
+                                    tipo: 'voto_comentario',
+                                    data: new Date(c.data_comentario),
+                                    likes: likes,
+                                    dislikes: dislikes,
+                                    mudanca: mudanca,
+                                    descricao: `Comentário recebeu ${likes} likes e ${dislikes} dislikes`
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // Ordenar por data (mais recente primeiro)
+                atividades.sort((a, b) => b.data - a.data);
+
+                if (atividades.length === 0) {
+                    listaDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Nenhuma mudança de reputação ainda</p>';
+                    return;
+                }
+
+                let html = `<div style="margin-bottom: 20px;">
+                    <strong>Total de Mudanças:</strong> ${atividades.length}
+                </div>`;
+
+                atividades.forEach(a => {
+                    const data = a.data.toLocaleString('pt-BR');
+                    const valor = a.mudanca > 0 ? `+${a.mudanca.toFixed(1)}` : a.mudanca.toFixed(1);
+                    const cor = a.mudanca > 0 ? '#4CAF50' : '#f44336';
+                    const bgCor = a.mudanca > 0 ? '#e8f5e9' : '#ffebee';
+                    const icone = a.mudanca > 0 ? '⬆️' : '⬇️';
+
+                    html += `
+                        <div style="background: ${bgCor}; padding: 18px; margin-bottom: 12px; border-radius: 10px; border-left: 5px solid ${cor};">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                        <span style="font-size: 24px;">${icone}</span>
+                                        <strong style="color: ${cor}; font-size: 20px;">${valor} pts</strong>
+                                    </div>
+                                    <div style="color: #666; font-size: 14px; margin-left: 34px;">
+                                        ${a.descricao}
+                                    </div>
+                                </div>
+                                <div style="text-align: right; font-size: 12px; color: #999;">
+                                    ${data}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                listaDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Erro ao carregar histórico de reputação:', error);
+                listaDiv.innerHTML = '<p style="text-align: center; color: #f44336; padding: 40px;">Erro ao carregar histórico</p>';
+            }
+        }
+
+        // Carregar todas as atividades
+        async function carregarTodasAtividades() {
+            if (!usuarioAtual) return;
+
+            const listaDiv = document.getElementById('listaAtividades');
+            listaDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Carregando...</p>';
+
+            try {
+                // Buscar transações, validações e votos
+                const [transacoesResponse, validacoesResponse, votosResponse, sugestoesResponse] = await Promise.all([
+                    fetch(`${API_URL_AUTH}/carteira/${usuarioAtual}/historico?limite=100`),
+                    fetch(`${API_URL_AUTH}/reputacao/validacoes/${usuarioAtual}?limite=100`).catch(() => null),
+                    fetch(`${API_URL_AUTH}/dao/comentarios?limite=50&usuario_atual=${usuarioAtual}`),
+                    fetch(`${API_URL_AUTH}/dao/sugestoes?usuario_nome=${usuarioAtual}`)
+                ]);
+
+                let todasAtividades = [];
+
+                // Processar transações
+                if (transacoesResponse.ok) {
+                    const transacoes = await transacoesResponse.json();
+                    transacoes.forEach(t => {
+                        todasAtividades.push({
+                            tipo: 'transacao',
+                            categoria: t.tipo,
+                            data: new Date(t.data_transacao),
+                            valor: t.quantidade,
+                            descricao: t.descricao || t.tipo,
+                            icone: t.quantidade > 0 ? '💰' : '💸'
+                        });
+                    });
+                }
+
+                // Processar validações
+                if (validacoesResponse && validacoesResponse.ok) {
+                    const validacoes = await validacoesResponse.json();
+                    validacoes.forEach(v => {
+                        todasAtividades.push({
+                            tipo: 'reputacao',
+                            categoria: 'validacao',
+                            data: new Date(v.data_validacao),
+                            valor: v.aprovado ? 0.5 : -1.0,
+                            descricao: v.aprovado ? 'Preço validado como correto' : 'Preço marcado como incorreto',
+                            icone: v.aprovado ? '✅' : '❌'
+                        });
+                    });
+                }
+
+                // Processar sugestões
+                if (sugestoesResponse.ok) {
+                    const sugestoes = await sugestoesResponse.json();
+                    sugestoes.forEach(s => {
+                        todasAtividades.push({
+                            tipo: 'dao',
+                            categoria: 'sugestao',
+                            data: new Date(s.data_criacao),
+                            valor: null,
+                            descricao: `Sugestão: ${s.titulo}`,
+                            status: s.status,
+                            icone: '💡'
+                        });
+                    });
+                }
+
+                // Ordenar por data (mais recente primeiro)
+                todasAtividades.sort((a, b) => b.data - a.data);
+
+                if (todasAtividades.length === 0) {
+                    listaDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Nenhuma atividade ainda</p>';
+                    return;
+                }
+
+                let html = `<div style="margin-bottom: 20px;">
+                    <strong>Total de Atividades:</strong> ${todasAtividades.length}
+                </div>`;
+
+                todasAtividades.forEach(a => {
+                    const data = a.data.toLocaleString('pt-BR');
+
+                    let cor, bgCor, valorTexto;
+                    if (a.tipo === 'transacao') {
+                        cor = a.valor > 0 ? '#4CAF50' : '#f44336';
+                        bgCor = a.valor > 0 ? '#e8f5e9' : '#ffebee';
+                        valorTexto = `<strong style="color: ${cor}; font-size: 18px;">${a.valor > 0 ? '+' : ''}${Math.floor(a.valor)} tokens</strong>`;
+                    } else if (a.tipo === 'reputacao') {
+                        cor = a.valor > 0 ? '#4CAF50' : '#f44336';
+                        bgCor = a.valor > 0 ? '#e8f5e9' : '#ffebee';
+                        valorTexto = `<strong style="color: ${cor}; font-size: 18px;">${a.valor > 0 ? '+' : ''}${a.valor.toFixed(1)} pts reputação</strong>`;
+                    } else if (a.tipo === 'dao') {
+                        // Definir cor e texto baseado no status da sugestão
+                        if (a.status === 'aprovada') {
+                            cor = '#4CAF50';
+                            bgCor = '#e8f5e9';
+                            valorTexto = `<strong style="color: ${cor}; font-size: 18px;">DAO Aprovada</strong>`;
+                        } else if (a.status === 'em_votacao') {
+                            cor = '#2196F3';
+                            bgCor = '#e3f2fd';
+                            valorTexto = `<strong style="color: ${cor}; font-size: 18px;">DAO Em Votação</strong>`;
+                        } else if (a.status === 'pendente_aprovacao') {
+                            cor = '#FF9800';
+                            bgCor = '#fff3cd';
+                            valorTexto = `<strong style="color: ${cor}; font-size: 18px;">DAO Pendente</strong>`;
+                        } else if (a.status === 'rejeitada') {
+                            cor = '#f44336';
+                            bgCor = '#ffebee';
+                            valorTexto = `<strong style="color: ${cor}; font-size: 18px;">DAO Rejeitada</strong>`;
+                        } else {
+                            cor = '#9E9E9E';
+                            bgCor = '#f5f5f5';
+                            valorTexto = `<strong style="color: ${cor}; font-size: 18px;">DAO</strong>`;
+                        }
+                    }
+
+                    html += `
+                        <div style="background: ${bgCor}; padding: 18px; margin-bottom: 12px; border-radius: 10px; border-left: 5px solid ${cor};">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                        <span style="font-size: 24px;">${a.icone}</span>
+                                        ${valorTexto}
+                                    </div>
+                                    <div style="color: #666; font-size: 14px; margin-left: 34px;">
+                                        ${a.descricao}
+                                    </div>
+                                </div>
+                                <div style="text-align: right; font-size: 12px; color: #999;">
+                                    ${data}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                listaDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Erro ao carregar todas as atividades:', error);
+                listaDiv.innerHTML = '<p style="text-align: center; color: #f44336; padding: 40px;">Erro ao carregar atividades</p>';
+            }
+        }
+
+        // Fechar modal ao clicar fora
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('modalHistorico');
+            if (e.target === modal) {
+                fecharHistoricoCompleto();
+            }
+        });
 
         // Configurar tudo quando a página carregar
         window.addEventListener('load', () => {
@@ -1422,6 +2201,1408 @@
         window.fecharModalTransporte = function() {
             document.getElementById('modalTransporte').style.display = 'none';
         }
+
+        // ============================================
+        // FUNÇÕES DO DAO
+        // ============================================
+
+        // Mostrar/Esconder views
+        function mostrarDAO() {
+            if (!usuarioAtual) {
+                mostrarToastInfo('Faça login para acessar a DAO', '🔒');
+                return;
+            }
+
+            document.getElementById('headerComparador').style.display = 'none';
+            document.getElementById('comparadorView').style.display = 'none';
+            document.getElementById('carteiraView').style.display = 'none';
+            document.getElementById('daoView').style.display = 'block';
+
+            // Carregar dados iniciais
+            carregarComentariosDAO();
+        }
+
+        // Tabs DAO
+        function mostrarTabDAO(tab) {
+            // Atualizar botões
+            document.getElementById('tabComentariosBtn').style.color = '#666';
+            document.getElementById('tabComentariosBtn').style.borderBottom = '3px solid transparent';
+            document.getElementById('tabSugestoesBtn').style.color = '#666';
+            document.getElementById('tabSugestoesBtn').style.borderBottom = '3px solid transparent';
+            document.getElementById('tabEstatisticasDAOBtn').style.color = '#666';
+            document.getElementById('tabEstatisticasDAOBtn').style.borderBottom = '3px solid transparent';
+
+            // Esconder todas as tabs
+            document.getElementById('daoTabComentarios').style.display = 'none';
+            document.getElementById('daoTabSugestoes').style.display = 'none';
+            document.getElementById('daoTabEstatisticas').style.display = 'none';
+
+            // Mostrar tab selecionada
+            if (tab === 'comentarios') {
+                document.getElementById('tabComentariosBtn').style.color = 'var(--primary-color)';
+                document.getElementById('tabComentariosBtn').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('daoTabComentarios').style.display = 'block';
+                carregarComentariosDAO();
+            } else if (tab === 'sugestoes') {
+                document.getElementById('tabSugestoesBtn').style.color = 'var(--primary-color)';
+                document.getElementById('tabSugestoesBtn').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('daoTabSugestoes').style.display = 'block';
+                carregarSugestoesDAO();
+            } else if (tab === 'estatisticas') {
+                document.getElementById('tabEstatisticasDAOBtn').style.color = 'var(--primary-color)';
+                document.getElementById('tabEstatisticasDAOBtn').style.borderBottom = '3px solid var(--primary-color)';
+                document.getElementById('daoTabEstatisticas').style.display = 'block';
+                carregarEstatisticasDAO();
+            }
+        }
+
+        // Comentários
+        function obterCorReputacao(reputacao) {
+            if (reputacao >= 180) return { cor: '#FFD700', badge: '👑 Lendário' };
+            if (reputacao >= 150) return { cor: '#4CAF50', badge: '💎 Excelente' };
+            if (reputacao >= 120) return { cor: '#2196F3', badge: '⭐ Muito Bom' };
+            if (reputacao >= 100) return { cor: '#667eea', badge: '🌟 Confiável' };
+            if (reputacao >= 70) return { cor: '#FF9800', badge: '⚠️ Regular' };
+            if (reputacao >= 40) return { cor: '#FF5722', badge: '⚠️ Atenção' };
+            return { cor: '#F44336', badge: '❌ Crítico' };
+        }
+
+        // Cache de reputações de moderadores
+        const cacheReputacoesModerador = {};
+
+        // Helper para obter info do moderador que aprovou
+        function obterModeradorAprovador(aprovadores) {
+            if (!aprovadores) return null;
+            const lista = aprovadores.split(',').map(m => m.trim()).filter(m => m);
+            if (lista.length === 0) return null;
+            // Retornar o último moderador (quem aprovou por último)
+            return lista[lista.length - 1];
+        }
+
+        // Buscar reputação de um moderador
+        async function buscarReputacaoModerador(usuario_nome) {
+            // Verificar cache
+            if (cacheReputacoesModerador[usuario_nome]) {
+                return cacheReputacoesModerador[usuario_nome];
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/carteira/${usuario_nome}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const reputacao = data.reputacao || 100;
+                    cacheReputacoesModerador[usuario_nome] = reputacao;
+                    return reputacao;
+                }
+            } catch (error) {
+                console.error('Erro ao buscar reputação do moderador:', error);
+            }
+
+            return 100; // Default
+        }
+
+        // Formatar display do moderador com reputação
+        async function formatarModeradorAprovador(aprovadores) {
+            const moderador = obterModeradorAprovador(aprovadores);
+            if (!moderador) return 'Moderador';
+
+            const reputacao = await buscarReputacaoModerador(moderador);
+            return `${moderador} • Reputação: ⭐ ${reputacao}`;
+        }
+
+        // Toggle informações do moderador que aprovou
+        function toggleInfoModerador(sugestaoId) {
+            const elemento = document.getElementById(`infoModerador${sugestaoId}`);
+            if (elemento) {
+                if (elemento.style.display === 'none') {
+                    elemento.style.display = 'block';
+                } else {
+                    elemento.style.display = 'none';
+                }
+            }
+        }
+
+        // Rastreamento de votos do usuário por sugestão
+        const votosUsuarioPorSugestao = {};
+
+        // Mostrar toast de votação bem bonito
+        function mostrarToastVotacao(aFavor, totalVotos, tokensUsados, tokensTotal) {
+            // Criar o toast
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${aFavor ? 'linear-gradient(135deg, #4CAF50, #45a049)' : 'linear-gradient(135deg, #f44336, #d32f2f)'};
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 300px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            const emoji = aFavor ? '👍' : '👎';
+            const direcao = aFavor ? 'A FAVOR' : 'CONTRA';
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">${emoji}</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">✅ Voto Registrado!</div>
+                        <div style="font-size: 14px; opacity: 0.95;">
+                            Votou <strong>${direcao}</strong>
+                        </div>
+                        <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">
+                            ${tokensUsados} token${tokensUsados > 1 ? 's' : ''} usados neste voto<br>
+                            Total: ${totalVotos} voto${totalVotos > 1 ? 's' : ''} • ${tokensTotal} tokens
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Adicionar animação CSS
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideOut {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
+            document.body.appendChild(toast);
+
+            // Remover após 4 segundos com animação
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 4000);
+        }
+
+        // Função de votação rápida (cada clique = mais votos seguindo fórmula quadrática)
+        async function votarRapidoDAO(sugestaoId, aFavor) {
+            // Inicializar contador se não existir
+            if (!votosUsuarioPorSugestao[sugestaoId]) {
+                votosUsuarioPorSugestao[sugestaoId] = {
+                    votosAtuais: 0,
+                    tokensAtuais: 0,
+                    ultimaDirecao: null
+                };
+            }
+
+            const info = votosUsuarioPorSugestao[sugestaoId];
+
+            // Se mudar de direção (favor <-> contra), resetar contador (backend vai bloquear)
+            if (info.ultimaDirecao !== null && info.ultimaDirecao !== aFavor) {
+                info.votosAtuais = 0;
+                info.tokensAtuais = 0;
+                info.ultimaDirecao = null;
+            }
+
+            // Calcular próximo voto e tokens necessários
+            const proximoVoto = info.votosAtuais + 1;
+            const tokensNecessarios = proximoVoto * proximoVoto; // n²
+            const tokensAdicionais = tokensNecessarios - info.tokensAtuais;
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/votar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: sugestaoId,
+                        usuario_nome: usuarioAtual,
+                        tokens_usados: tokensAdicionais,
+                        voto_favor: aFavor
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Atualizar contadores
+                    info.votosAtuais = proximoVoto;
+                    info.tokensAtuais = tokensNecessarios;
+                    info.ultimaDirecao = aFavor;
+
+                    // Mostrar info do voto
+                    const infoVoto = document.getElementById(`infoVoto${sugestaoId}`);
+                    infoVoto.style.display = 'block';
+                    document.getElementById(`votosUsuario${sugestaoId}`).textContent = proximoVoto;
+                    document.getElementById(`tokensUsuario${sugestaoId}`).textContent = tokensNecessarios;
+
+                    // Mostrar toast de sucesso
+                    mostrarToastVotacao(aFavor, proximoVoto, tokensAdicionais, tokensNecessarios);
+
+                    // Recarregar sugestões
+                    carregarSugestoesDAO();
+                } else {
+                    alert(data.detail || 'Erro ao votar');
+                }
+            } catch (error) {
+                console.error('Erro ao votar:', error);
+                alert('Erro ao processar voto');
+            }
+        }
+
+        async function carregarComentariosDAO() {
+            try {
+                const usuario = localStorage.getItem('usuario_nome') || 'Anônimo';
+                const response = await fetch(`${API_URL_AUTH}/dao/comentarios?limite=50&usuario_atual=${usuario}`);
+                const comentarios = await response.json();
+
+                const lista = document.getElementById('daoListaComentarios');
+
+                if (comentarios.length === 0) {
+                    lista.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Nenhum comentário ainda. Seja o primeiro!</div>';
+                    return;
+                }
+
+                lista.innerHTML = comentarios.map(c => {
+                    const corInfo = obterCorReputacao(c.reputacao_autor);
+                    const iniciais = c.usuario_nome.substring(0, 2).toUpperCase();
+                    const jaVotou = c.voto_usuario;
+
+                    return `
+                        <div class="comment" style="border-left: 4px solid ${corInfo.cor}; padding: 12px; margin-bottom: 8px; background: #f9f9f9; border-radius: 8px;">
+                            <div style="display: flex; gap: 12px;">
+                                <div class="avatar" style="border: 3px solid ${corInfo.cor}; width: 40px; height: 40px; font-size: 16px;">
+                                    ${iniciais}
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div>
+                                                <span class="username" style="color: ${corInfo.cor}; font-weight: 600; font-size: 15px;">
+                                                    ${c.usuario_nome}
+                                                </span>
+                                                <span style="font-size: 16px; color: #222; margin-left: 8px; line-height: 1.5;">
+                                                    ${c.conteudo}
+                                                </span>
+                                            </div>
+                                            <div style="font-size: 11px; color: #999; margin-top: 4px;">
+                                                ${corInfo.badge} (${Math.round(c.reputacao_autor)} pts)
+                                            </div>
+                                        </div>
+                                        <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                                            <div class="comment-actions" style="margin: 0;">
+                                                <button class="vote-btn ${jaVotou === 'like' ? 'voted' : ''}"
+                                                        onclick="votarComentarioDAO(${c.id}, 'like')">
+                                                    👍 <span>${c.likes}</span>
+                                                </button>
+                                                <button class="vote-btn ${jaVotou === 'dislike' ? 'voted' : ''}"
+                                                        onclick="votarComentarioDAO(${c.id}, 'dislike')">
+                                                    👎 <span>${c.dislikes}</span>
+                                                </button>
+                                            </div>
+                                            <span class="timestamp" style="font-size: 11px;">${formatarDataDAO(c.data_criacao)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Erro ao carregar comentários:', error);
+            }
+        }
+
+        async function votarComentarioDAO(comentarioId, tipo) {
+            const usuario = localStorage.getItem('usuario_nome') || 'Anônimo';
+
+            if (usuario === 'Anônimo') {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/comentarios/${comentarioId}/votar?usuario_nome=${usuario}&tipo=${tipo}`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    carregarComentariosDAO();
+                }
+            } catch (error) {
+                console.error('Erro ao votar:', error);
+            }
+        }
+
+        async function enviarComentarioDAO() {
+            const texto = document.getElementById('daoComentarioTexto').value.trim();
+
+            if (!texto) {
+                mostrarToastInfo('Digite seu comentário antes de enviar', '💬');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/comentarios`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario_nome: usuarioAtual,
+                        conteudo: texto
+                    })
+                });
+
+                if (response.ok) {
+                    document.getElementById('daoComentarioTexto').value = '';
+                    carregarComentariosDAO();
+                    mostrarToastSucesso('Comentário enviado!', '💬');
+                } else {
+                    mostrarToastErro('Erro ao enviar comentário');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarToastErro('Erro ao enviar comentário');
+            }
+        }
+
+        // Sugestões
+        async function carregarSugestoesDAO(status = '') {
+            try {
+                const url = status ? `${API_URL_AUTH}/dao/sugestoes?status=${status}` : `${API_URL_AUTH}/dao/sugestoes`;
+                const response = await fetch(url);
+                let sugestoes = await response.json();
+
+                // Filtrar para excluir sugestões aprovadas, em implementação, implementadas e rejeitadas
+                // (aprovadas/implementadas aparecem na aba Estatísticas, rejeitadas são descartadas)
+                sugestoes = sugestoes.filter(s =>
+                    s.status !== 'aprovada' &&
+                    s.status !== 'em_implementacao' &&
+                    s.status !== 'implementada' &&
+                    s.status !== 'rejeitada'
+                );
+
+                // Pre-fetch reputações dos moderadores que aprovaram sugestões em votação
+                const moderadoresSet = new Set();
+                sugestoes.forEach(s => {
+                    if (s.status === 'em_votacao' && s.aprovadores) {
+                        const moderador = obterModeradorAprovador(s.aprovadores);
+                        if (moderador) moderadoresSet.add(moderador);
+                    }
+                });
+
+                // Buscar reputações em paralelo
+                const moderadores = Array.from(moderadoresSet);
+                await Promise.all(moderadores.map(m => buscarReputacaoModerador(m)));
+
+                const lista = document.getElementById('daoListaSugestoes');
+
+                if (sugestoes.length === 0) {
+                    lista.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Nenhuma sugestão encontrada</div>';
+                    return;
+                }
+
+                lista.innerHTML = sugestoes.map(s => {
+                    const totalVotos = s.total_votos_favor + s.total_votos_contra;
+                    const porcentagem = s.porcentagem_aprovacao.toFixed(1);
+
+                    // Obter informações do moderador (já em cache)
+                    const moderador = obterModeradorAprovador(s.aprovadores);
+                    const moderadorReputacao = moderador ? cacheReputacoesModerador[moderador] || 100 : 100;
+
+                    return `
+                        <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                                <div>
+                                    <span style="font-weight: 600; color: var(--primary-color);">${s.usuario_nome}</span>
+                                    <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-left: 10px; ${getStatusStyle(s.status)}">${traduzirStatusDAO(s.status)}</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    ${s.status === 'em_votacao' && moderador ? `
+                                        <button onclick="toggleInfoModerador(${s.id})" style="background: #e7f3ff; border: 1px solid #2196F3; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 16px; transition: all 0.2s;" title="Ver moderador que aprovou">
+                                            👮
+                                        </button>
+                                    ` : ''}
+                                    <span style="color: #999; font-size: 12px;">${formatarDataDAO(s.data_criacao)}</span>
+                                </div>
+                            </div>
+
+                            <h3 style="margin-bottom: 10px;">${s.titulo}</h3>
+                            <p style="color: #666;">${s.descricao}</p>
+
+                            ${s.status === 'em_votacao' && moderador ? `
+                                <div id="infoModerador${s.id}" style="display: none; background: #e7f3ff; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px;">
+                                    👮 <strong>Aprovado para votação por:</strong> ${moderador} • Reputação: ⭐ ${moderadorReputacao}
+                                </div>
+                            ` : ''}
+
+                            ${s.status === 'pendente_aprovacao' && usuarioAtual === 'Vengel' ? `
+                                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                                    <button onclick="aprovarSugestaoDAO(${s.id})" style="background: var(--success-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">✅ Aprovar</button>
+                                    <button onclick="rejeitarSugestaoDAO(${s.id})" style="background: var(--danger-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">❌ Rejeitar</button>
+                                </div>
+                            ` : ''}
+
+                            ${s.status === 'em_votacao' ? `
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px;">
+                                        <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; text-align: center;">
+                                            <div style="font-size: 24px; font-weight: bold; color: var(--success-color);">${s.total_votos_favor}</div>
+                                            <div style="font-size: 12px; color: #666;">A Favor</div>
+                                        </div>
+                                        <div style="background: #ffebee; padding: 12px; border-radius: 8px; text-align: center;">
+                                            <div style="font-size: 24px; font-weight: bold; color: var(--danger-color);">${s.total_votos_contra}</div>
+                                            <div style="font-size: 12px; color: #666;">Contra</div>
+                                        </div>
+                                        <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; text-align: center;">
+                                            <div style="font-size: 24px; font-weight: bold; color: var(--secondary-color);">${porcentagem}%</div>
+                                            <div style="font-size: 12px; color: #666;">Aprovação</div>
+                                        </div>
+                                    </div>
+
+                                    <div style="height: 30px; background: #e0e0e0; border-radius: 15px; overflow: hidden; margin-bottom: 10px;">
+                                        <div style="height: 100%; background: linear-gradient(90deg, var(--primary-color), #45a049); width: ${porcentagem}%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; transition: width 0.3s;">
+                                            ${porcentagem}%
+                                        </div>
+                                    </div>
+
+                                    <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                                        ${totalVotos} votos totais | ${s.total_tokens_votados} tokens usados
+                                    </p>
+
+                                    <div id="votoCard${s.id}" style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                            <button onclick="votarRapidoDAO(${s.id}, true)" style="flex: 1; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+                                                👍 A Favor
+                                            </button>
+                                            <button onclick="votarRapidoDAO(${s.id}, false)" style="flex: 1; background: linear-gradient(135deg, #f44336, #d32f2f); color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+                                                👎 Contra
+                                            </button>
+                                        </div>
+                                        <div id="infoVoto${s.id}" style="text-align: center; font-size: 12px; color: #666; display: none;">
+                                            <span id="votosUsuario${s.id}">0</span> voto(s) • <span id="tokensUsuario${s.id}">0</span> token(s) usados
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            ${s.status === 'aprovada' ? `
+                                <div style="margin-top: 15px; padding: 15px; background: #d1e7dd; border-radius: 8px;">
+                                    <strong>🎉 Sugestão aprovada com ${porcentagem}% dos votos!</strong>
+                                    <p style="margin-top: 5px; font-size: 14px;">Será implementada em breve.</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Erro ao carregar sugestões:', error);
+            }
+        }
+
+        function filtrarSugestoesDAO(status) {
+            carregarSugestoesDAO(status);
+        }
+
+        async function criarSugestaoDAO() {
+            const titulo = document.getElementById('daoSugestaoTitulo').value.trim();
+            const descricao = document.getElementById('daoSugestaoDescricao').value.trim();
+
+            if (!titulo || !descricao) {
+                mostrarToastInfo('Preencha o título e a descrição da sugestão', '📝');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/sugestoes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario_nome: usuarioAtual,
+                        titulo,
+                        descricao
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('daoSugestaoTitulo').value = '';
+                    document.getElementById('daoSugestaoDescricao').value = '';
+                    mostrarToastSucesso('Sugestão criada! Você gastou 5 tokens.<br><br><small>Aguardando aprovação do moderador</small>', '💡');
+                    carregarSugestoesDAO();
+                    atualizarCarteira();
+                } else if (response.status === 402) {
+                    mostrarToastErro(`${data.detail.mensagem}<br><br>💡 ${data.detail.dica}`);
+                } else {
+                    mostrarToastErro('Erro ao criar sugestão');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarToastErro('Erro ao criar sugestão');
+            }
+        }
+
+        async function aprovarSugestaoDAO(id) {
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/sugestoes/${id}/aprovar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: id,
+                        usuario_nome: usuarioAtual
+                    })
+                });
+
+                const data = await response.json();
+                mostrarToastSucesso(data.mensagem, '✅');
+                carregarSugestoesDAO();
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarToastErro('Erro ao aprovar sugestão');
+            }
+        }
+
+        async function rejeitarSugestaoDAO(id) {
+            mostrarModalInput(
+                '❌ Rejeitar Sugestão',
+                'Por que está rejeitando esta sugestão?',
+                'Digite o motivo da rejeição...',
+                async (motivo) => {
+                    try {
+                        const response = await fetch(`${API_URL_AUTH}/dao/sugestoes/${id}/rejeitar`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                sugestao_id: id,
+                                usuario_admin: usuarioAtual,
+                                motivo
+                            })
+                        });
+
+                        if (response.ok) {
+                            mostrarToastSucesso('Sugestão rejeitada', '❌');
+                            carregarSugestoesDAO();
+                        } else {
+                            mostrarToastErro('Erro ao rejeitar sugestão');
+                        }
+                    } catch (error) {
+                        console.error('Erro:', error);
+                        mostrarToastErro('Erro ao rejeitar sugestão');
+                    }
+                }
+            );
+        }
+
+        async function aceitarImplementarDAO(sugestaoId) {
+            // Criar modal de confirmação bonito
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 64px; margin-bottom: 10px;">🛠️</div>
+                        <h2 style="margin: 0 0 10px 0; color: #333;">Aceitar Implementação?</h2>
+                        <p style="margin: 0; color: #666; font-size: 14px;">
+                            Você será responsável por implementar esta sugestão.<br>
+                            Ao concluir, receberá <strong style="color: #2196F3;">5 tokens</strong> do escrow!
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button id="cancelar-aceitar" style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button id="confirmar-aceitar" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #2196F3, #1976D2); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            🛠️ Aceitar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Event listeners
+            const confirmarBtn = modal.querySelector('#confirmar-aceitar');
+            const cancelarBtn = modal.querySelector('#cancelar-aceitar');
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => document.body.removeChild(modal), 200);
+            };
+
+            cancelarBtn.onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+
+            confirmarBtn.onclick = async () => {
+                fecharModal();
+
+                try {
+                    const response = await fetch(`${API_URL_AUTH}/moderadores/aceitar-implementar`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sugestao_id: sugestaoId,
+                            moderador_nome: usuarioAtual
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        mostrarToastAceito(data.mensagem || 'Implementação aceita com sucesso!');
+                        carregarEstatisticasDAO();
+                    } else {
+                        mostrarToastErro(data.detail || 'Erro ao aceitar implementação');
+                    }
+                } catch (error) {
+                    console.error('Erro:', error);
+                    mostrarToastErro('Erro ao aceitar implementação');
+                }
+            };
+        }
+
+        async function concluirImplementacaoDAO(sugestaoId) {
+            // Criar modal de confirmação bonito
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 64px; margin-bottom: 10px;">🎉</div>
+                        <h2 style="margin: 0 0 10px 0; color: #333;">Concluir Implementação?</h2>
+                        <p style="margin: 0; color: #666; font-size: 14px;">
+                            Você receberá <strong style="color: #4CAF50;">5 tokens</strong> do escrow ao confirmar!
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button id="cancelar-conclusao" style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button id="confirmar-conclusao" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            ✅ Confirmar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Event listeners
+            const confirmarBtn = modal.querySelector('#confirmar-conclusao');
+            const cancelarBtn = modal.querySelector('#cancelar-conclusao');
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => document.body.removeChild(modal), 200);
+            };
+
+            cancelarBtn.onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+
+            confirmarBtn.onclick = async () => {
+                fecharModal();
+
+                try {
+                    const response = await fetch(`${API_URL_AUTH}/moderadores/marcar-implementada`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sugestao_id: sugestaoId,
+                            moderador_nome: usuarioAtual
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        mostrarToastConclusao(data.tokens_recebidos || 5);
+                        carregarEstatisticasDAO();
+                        atualizarCarteira();
+                    } else {
+                        mostrarToastErro(data.detail || 'Erro ao concluir implementação');
+                    }
+                } catch (error) {
+                    console.error('Erro:', error);
+                    mostrarToastErro('Erro ao concluir implementação');
+                }
+            };
+        }
+
+        function mostrarToastConclusao(tokensRecebidos) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #FFD700, #FFA500);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">🎉</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">✅ Implementação Concluída!</div>
+                        <div style="font-size: 14px; opacity: 0.95;">
+                            Você recebeu <strong>${tokensRecebidos} tokens</strong> do escrow!
+                        </div>
+                        <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">
+                            💰 Tokens creditados na sua carteira
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 5000);
+        }
+
+        function mostrarToastErro(mensagem) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #f44336, #d32f2f);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">❌</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">Erro</div>
+                        <div style="font-size: 14px; opacity: 0.95;">
+                            ${mensagem}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 4000);
+        }
+
+        function mostrarToastAceito(mensagem) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #2196F3, #1976D2);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">🛠️</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">✅ Implementação Aceita!</div>
+                        <div style="font-size: 14px; opacity: 0.95;">
+                            ${mensagem}
+                        </div>
+                        <div style="font-size: 13px; opacity: 0.9; margin-top: 5px;">
+                            💡 Concluindo, você receberá 5 tokens do escrow
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 5000);
+        }
+
+        // Funções auxiliares reutilizáveis para modals e toasts
+        function mostrarToastSucesso(mensagem, icone = '✅') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #4CAF50, #45a049);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">${icone}</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 16px; opacity: 0.95; line-height: 1.4;">
+                            ${mensagem}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (toast.parentNode) document.body.removeChild(toast);
+                }, 300);
+            }, 4000);
+        }
+
+        function mostrarToastInfo(mensagem, icone = 'ℹ️') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #2196F3, #1976D2);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                z-index: 10000;
+                min-width: 350px;
+                animation: slideIn 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            `;
+
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 48px;">${icone}</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 16px; opacity: 0.95; line-height: 1.4;">
+                            ${mensagem}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (toast.parentNode) document.body.removeChild(toast);
+                }, 300);
+            }, 3500);
+        }
+
+        function mostrarModalConfirmar(titulo, mensagem, icone, onConfirm) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 64px; margin-bottom: 10px;">${icone}</div>
+                        <h2 style="margin: 0 0 10px 0; color: #333;">${titulo}</h2>
+                        <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">
+                            ${mensagem}
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button class="btn-cancelar" style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button class="btn-confirmar" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => {
+                    if (modal.parentNode) document.body.removeChild(modal);
+                }, 200);
+            };
+
+            modal.querySelector('.btn-cancelar').onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+            modal.querySelector('.btn-confirmar').onclick = () => {
+                fecharModal();
+                if (onConfirm) onConfirm();
+            };
+        }
+
+        function mostrarModalInput(titulo, mensagem, placeholder, onConfirm) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <h2 style="margin: 0 0 10px 0; color: #333;">${titulo}</h2>
+                    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+                        ${mensagem}
+                    </p>
+                    <input type="text" class="modal-input" placeholder="${placeholder}"
+                        style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-cancelar" style="flex: 1; padding: 12px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button class="btn-confirmar" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const input = modal.querySelector('.modal-input');
+            input.focus();
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => {
+                    if (modal.parentNode) document.body.removeChild(modal);
+                }, 200);
+            };
+
+            modal.querySelector('.btn-cancelar').onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+
+            const confirmar = () => {
+                const valor = input.value.trim();
+                if (valor && onConfirm) {
+                    fecharModal();
+                    onConfirm(valor);
+                }
+            };
+
+            modal.querySelector('.btn-confirmar').onclick = confirmar;
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') confirmar();
+            });
+        }
+
+        // Modal de votação
+        let sugestaoAtualDAO = null;
+
+        function abrirModalVotoDAO(id, titulo, descricao) {
+            sugestaoAtualDAO = id;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s;
+            `;
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 30px; max-width: 500px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: scaleIn 0.2s;">
+                    <h2 style="margin: 0 0 10px 0; color: #333;">🗳️ ${titulo}</h2>
+                    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">${descricao}</p>
+
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 10px; color: #333;">Quantos tokens deseja usar?</label>
+                        <input type="number" id="tokens-input" min="1" max="100" value="1"
+                            style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 10px;">
+                        <div style="font-size: 13px; color: #666; margin-bottom: 8px;">
+                            Fórmula quadrática: votos = √(tokens)<br>
+                            1 token = 1 voto | 4 tokens = 2 votos | 9 tokens = 3 votos
+                        </div>
+                        <div style="font-size: 16px; font-weight: 600; color: #4CAF50;">
+                            Votos gerados: <span id="votos-display">1</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-cancelar" style="flex: 1; padding: 14px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            Cancelar
+                        </button>
+                        <button class="btn-contra" style="flex: 1; padding: 14px; background: linear-gradient(135deg, #f44336, #d32f2f); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            👎 Contra
+                        </button>
+                        <button class="btn-favor" style="flex: 1; padding: 14px; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            👍 A Favor
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const tokensInput = modal.querySelector('#tokens-input');
+            const votosDisplay = modal.querySelector('#votos-display');
+
+            tokensInput.addEventListener('input', () => {
+                const tokens = parseInt(tokensInput.value) || 1;
+                const votos = Math.floor(Math.sqrt(tokens));
+                votosDisplay.textContent = votos;
+            });
+
+            const fecharModal = () => {
+                modal.style.animation = 'fadeOut 0.2s';
+                setTimeout(() => {
+                    if (modal.parentNode) document.body.removeChild(modal);
+                }, 200);
+            };
+
+            modal.querySelector('.btn-cancelar').onclick = fecharModal;
+            modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+
+            modal.querySelector('.btn-favor').onclick = () => {
+                const tokens = parseInt(tokensInput.value) || 1;
+                if (tokens < 1 || tokens > 100) {
+                    mostrarToastInfo('Use entre 1 e 100 tokens', 'ℹ️');
+                    return;
+                }
+                fecharModal();
+                votarSugestaoDAO(tokens, true);
+            };
+
+            modal.querySelector('.btn-contra').onclick = () => {
+                const tokens = parseInt(tokensInput.value) || 1;
+                if (tokens < 1 || tokens > 100) {
+                    mostrarToastInfo('Use entre 1 e 100 tokens', 'ℹ️');
+                    return;
+                }
+                fecharModal();
+                votarSugestaoDAO(tokens, false);
+            };
+
+            tokensInput.focus();
+        }
+
+        async function votarSugestaoDAO(tokens, favor) {
+            try {
+                const response = await fetch(`${API_URL_AUTH}/dao/votar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sugestao_id: sugestaoAtualDAO,
+                        usuario_nome: usuarioAtual,
+                        tokens_usados: tokens,
+                        voto_favor: favor
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const icone = favor ? '👍' : '👎';
+                    mostrarToastSucesso(`${data.mensagem}<br><br>💰 Saldo restante: ${data.saldo_restante} tokens`, icone);
+                    carregarSugestoesDAO();
+                    atualizarCarteira();
+                } else {
+                    mostrarToastErro(data.detail || 'Erro ao votar');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                mostrarToastErro('Erro ao votar');
+            }
+        }
+
+        // Estatísticas
+        async function carregarEstatisticasDAO() {
+            try {
+                const [statsResponse, sugestoesResponse] = await Promise.all([
+                    fetch(`${API_URL_AUTH}/dao/estatisticas`),
+                    fetch(`${API_URL_AUTH}/dao/sugestoes`)
+                ]);
+
+                const stats = await statsResponse.json();
+                const todasSugestoes = await sugestoesResponse.json();
+
+                // Filtrar sugestões por status
+                const emImplementacao = todasSugestoes.filter(s => s.status === 'em_implementacao');
+                const implementadas = todasSugestoes.filter(s => s.status === 'implementada');
+                const aprovadas = todasSugestoes.filter(s => s.status === 'aprovada');
+
+                let html = `
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 20px;">📊 Estatísticas da DAO</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+                            <div style="background: #e8f5e9; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: var(--success-color);">${stats.total_comentarios}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Comentários</div>
+                            </div>
+                            <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: var(--secondary-color);">${stats.total_sugestoes}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Sugestões</div>
+                            </div>
+                            <div style="background: #fff3cd; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: #856404;">${stats.sugestoes_pendentes}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Pendentes</div>
+                            </div>
+                            <div style="background: #cfe2ff; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: #084298;">${stats.sugestoes_em_votacao}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Em Votação</div>
+                            </div>
+                            <div style="background: #d1e7dd; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: #0f5132;">${stats.sugestoes_aprovadas}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Aprovadas</div>
+                            </div>
+                            <div style="background: #f1f8f4; padding: 20px; border-radius: 10px; text-align: center;">
+                                <div style="font-size: 32px; font-weight: bold; color: var(--primary-color);">${stats.total_tokens_votados}</div>
+                                <div style="font-size: 14px; color: #666; margin-top: 5px;">Tokens Votados</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Seção: Em Implementação (Trabalhando)
+                if (emImplementacao.length > 0) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                            <h3 style="color: #2196F3; margin-bottom: 15px;">🛠️ Trabalhando (${emImplementacao.length})</h3>
+                    `;
+                    emImplementacao.forEach(s => {
+                        html += renderSugestaoEstatisticas(s);
+                    });
+                    html += `</div>`;
+                }
+
+                // Seção: Aprovadas (Aguardando Moderador)
+                if (aprovadas.length > 0) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                            <h3 style="color: #4CAF50; margin-bottom: 15px;">✅ Aprovadas - Aguardando Moderador (${aprovadas.length})</h3>
+                    `;
+                    aprovadas.forEach(s => {
+                        html += renderSugestaoEstatisticas(s);
+                    });
+                    html += `</div>`;
+                }
+
+                // Seção: Implementadas (Concluídas)
+                if (implementadas.length > 0) {
+                    html += `
+                        <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                            <h3 style="color: #9C27B0; margin-bottom: 15px;">🎉 Concluídas (${implementadas.length})</h3>
+                    `;
+                    implementadas.forEach(s => {
+                        html += renderSugestaoEstatisticas(s);
+                    });
+                    html += `</div>`;
+                }
+
+                document.getElementById('daoEstatisticas').innerHTML = html;
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+            }
+        }
+
+        function renderSugestaoEstatisticas(s) {
+            const statusInfo = {
+                'aprovada': { cor: '#4CAF50', texto: '✅ Aprovada' },
+                'em_implementacao': { cor: '#2196F3', texto: '🛠️ Trabalhando' },
+                'implementada': { cor: '#9C27B0', texto: '🎉 Concluída' }
+            };
+
+            const info = statusInfo[s.status] || { cor: '#666', texto: s.status };
+
+            return `
+                <div style="background: #f9f9f9; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 16px; color: #333;">${s.titulo}</h4>
+                            <p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">
+                                por <strong>${s.usuario_nome}</strong> • ${formatarDataDAO(s.data_criacao)}
+                            </p>
+                        </div>
+                        <div style="background: ${info.cor}; color: white; padding: 6px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap;">
+                            ${info.texto}
+                        </div>
+                    </div>
+
+                    <p style="color: #555; margin: 10px 0; font-size: 14px;">${s.descricao}</p>
+
+                    ${s.tokens_escrow > 0 ? `
+                        <div style="display: inline-block; background: #fff3cd; color: #856404; padding: 6px 12px; border-radius: 8px; font-size: 13px; margin-top: 10px;">
+                            💰 ${s.tokens_escrow} tokens em escrow
+                        </div>
+                    ` : ''}
+
+                    ${s.moderador_implementador ? `
+                        <div style="background: #e7f3ff; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 13px;">
+                            👮 <strong>Moderador:</strong> ${s.moderador_implementador}
+                            ${s.status === 'implementada' ? ' • <span style="color: #4CAF50;">Implementação concluída</span>' : ' • <span style="color: #2196F3;">Trabalhando na implementação</span>'}
+                        </div>
+                    ` : ''}
+
+                    ${s.status === 'em_implementacao' && s.moderador_implementador === usuarioAtual ? `
+                        <button onclick="concluirImplementacaoDAO(${s.id})" style="background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+                            ✅ Concluir Implementação e Receber Tokens
+                        </button>
+                    ` : ''}
+
+                    ${s.status === 'aprovada' && usuarioAtual === 'Vengel' ? `
+                        <button onclick="aceitarImplementarDAO(${s.id})" style="background: linear-gradient(135deg, #2196F3, #1976D2); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
+                            🛠️ Aceitar Implementação
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Utilidades DAO
+        function formatarDataDAO(dataString) {
+            const data = new Date(dataString);
+            const agora = new Date();
+            const diffMs = agora - data;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHoras = Math.floor(diffMs / 3600000);
+            const diffDias = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Agora';
+            if (diffMins < 60) return `${diffMins} min atrás`;
+            if (diffHoras < 24) return `${diffHoras}h atrás`;
+            if (diffDias === 1) return 'Ontem';
+            if (diffDias < 7) return `${diffDias} dias atrás`;
+            return data.toLocaleDateString('pt-BR');
+        }
+
+        function traduzirStatusDAO(status) {
+            const traducoes = {
+                'pendente_aprovacao': '⏳ Pendente',
+                'em_votacao': '🗳️ Em Votação',
+                'aprovada': '✅ Aprovada',
+                'em_implementacao': '🛠️ Trabalhando',
+                'implementada': '🎉 Concluída',
+                'rejeitada': '❌ Rejeitada',
+                'cancelada': '🚫 Cancelada'
+            };
+            return traducoes[status] || status;
+        }
+
+        function getStatusStyle(status) {
+            const styles = {
+                'pendente_aprovacao': 'background: #fff3cd; color: #856404;',
+                'em_votacao': 'background: #cfe2ff; color: #084298;',
+                'aprovada': 'background: #d1e7dd; color: #0f5132;',
+                'em_implementacao': 'background: #e3f2fd; color: #2196F3;',
+                'implementada': 'background: #e1bee7; color: #9C27B0;',
+                'rejeitada': 'background: #f8d7da; color: #842029;',
+                'cancelada': 'background: #e0e0e0; color: #666;'
+            };
+            return styles[status] || '';
+        }
+
+        // ============================================
+        // VALIDAÇÃO AUTOMÁTICA (REMOVIDA - AGORA É AUTOMÁTICA NO BACKEND)
+        // ============================================
+
+        // REMOVIDO: Sistema de validação manual substituído por validação automática
+        // A reputação agora é calculada automaticamente quando preços são adicionados
+
 
     </script>
 </body>

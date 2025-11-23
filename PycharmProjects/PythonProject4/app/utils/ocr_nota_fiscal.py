@@ -6,8 +6,10 @@ import re
 from typing import List, Dict, Optional
 from datetime import datetime
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 import io
+from difflib import SequenceMatcher
+import numpy as np
 
 
 class NotaFiscalOCR:
@@ -54,33 +56,115 @@ class NotaFiscalOCR:
             r'^[A-Z]{2,4}\d+\s*',  # Código alfanumérico
         ]
 
+        # DICIONÁRIO DE PRODUTOS COMUNS (para correção de OCR)
+        # Produtos mais comuns em supermercados brasileiros
+        self.produtos_comuns = [
+            # Grãos e cereais
+            'ARROZ', 'FEIJAO', 'FEIJÃO', 'MACARRAO', 'MACARRÃO', 'FARINHA', 'FUBÁ', 'FUBA',
+            'AVEIA', 'GRANOLA', 'QUINOA',
+
+            # Bebidas
+            'CAFE', 'CAFÉ', 'CHA', 'CHÁ', 'SUCO', 'REFRIGERANTE', 'AGUA', 'ÁGUA',
+            'CERVEJA', 'VINHO', 'LEITE', 'IOGURTE', 'ACHOCOLATADO',
+
+            # Frutas e verduras
+            'BANANA', 'MACA', 'MAÇÃ', 'LARANJA', 'LIMAO', 'LIMÃO', 'MELAO', 'MELÃO',
+            'MELANCIA', 'MAMAO', 'MAMÃO', 'MORANGO', 'UVA', 'PERA', 'ABACAXI',
+            'TOMATE', 'CEBOLA', 'ALHO', 'BATATA', 'CENOURA', 'ALFACE', 'REPOLHO',
+            'BROCOLIS', 'BRÓCOLIS', 'COUVE', 'PEPINO', 'PIMENTAO', 'PIMENTÃO',
+
+            # Carnes e proteínas
+            'CARNE', 'FRANGO', 'PEIXE', 'LINGUICA', 'LINGUIÇA', 'SALSICHA', 'BACON',
+            'PRESUNTO', 'MORTADELA', 'SALAME', 'OVO', 'OVOS',
+
+            # Laticínios
+            'QUEIJO', 'MANTEIGA', 'MARGARINA', 'REQUEIJAO', 'REQUEIJÃO', 'CREAM CHEESE',
+
+            # Condimentos e temperos
+            'SAL', 'PIMENTA', 'OLEO', 'ÓLEO', 'AZEITE', 'VINAGRE', 'MOLHO', 'CATCHUP',
+            'KETCHUP', 'MAIONESE', 'MOSTARDA',
+
+            # Produtos de limpeza
+            'SABAO', 'SABÃO', 'DETERGENTE', 'AMACIANTE', 'DESINFETANTE', 'AGUA SANITARIA',
+            'ALVEJANTE', 'ESPONJA', 'PAPEL HIGIENICO', 'PAPEL HIGIÊNICO',
+
+            # Higiene pessoal
+            'SHAMPOO', 'CONDICIONADOR', 'SABONETE', 'PASTA DE DENTE', 'CREME DENTAL',
+            'DESODORANTE', 'ABSORVENTE',
+
+            # Outros
+            'ACUCAR', 'AÇÚCAR', 'BISCOITO', 'BOLACHA', 'PÃO', 'PAO', 'BOLO', 'CHOCOLATE',
+            'SORVETE', 'PIRAO', 'PIRÃO', 'SARDINHA', 'ATUM'
+        ]
+
+        # Converter para maiúsculas para comparação
+        self.produtos_comuns_upper = [p.upper() for p in self.produtos_comuns]
+
     def extrair_texto(self, imagem_bytes: bytes) -> str:
-        """Extrai texto da imagem da nota fiscal"""
+        """Extrai texto da imagem da nota fiscal - SUPER OTIMIZADO para fotos do WhatsApp"""
         try:
             imagem = Image.open(io.BytesIO(imagem_bytes))
 
-            # Melhorar qualidade da imagem
-            from PIL import ImageEnhance
+            print(f"Imagem original: {imagem.width}x{imagem.height}, modo: {imagem.mode}")
 
-            # Converter para RGB primeiro se necessário
-            if imagem.mode not in ('L', 'RGB'):
+            # ESTRATÉGIA PARA FOTOS DO WHATSAPP (comprimidas, baixa qualidade):
+            # 1. Manter tamanho razoável (não muito pequeno)
+            # 2. Aplicar pré-processamento MODERADO
+            # 3. NÃO exagerar no processamento (pode piorar)
+
+            # Tamanho ideal: 1200px (bom balanço)
+            target_dimension = 1200
+
+            # Calcular novo tamanho mantendo proporção
+            if imagem.width > imagem.height:
+                if imagem.width > target_dimension:
+                    ratio = target_dimension / imagem.width
+                    new_width = target_dimension
+                    new_height = int(imagem.height * ratio)
+                else:
+                    new_width, new_height = imagem.width, imagem.height
+            else:
+                if imagem.height > target_dimension:
+                    ratio = target_dimension / imagem.height
+                    new_height = target_dimension
+                    new_width = int(imagem.width * ratio)
+                else:
+                    new_width, new_height = imagem.width, imagem.height
+
+            # Redimensionar se necessário
+            if (new_width, new_height) != (imagem.width, imagem.height):
+                # LANCZOS = melhor qualidade para redução
+                imagem = imagem.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                print(f"Redimensionada para: {new_width}x{new_height}")
+
+            # PRÉ-PROCESSAMENTO SIMPLES (menos processamento = melhor resultado)
+
+            # 1. Converter para RGB se necessário
+            if imagem.mode != 'RGB':
                 imagem = imagem.convert('RGB')
 
-            # Aumentar contraste
+            # 2. Aumentar contraste moderadamente
             enhancer = ImageEnhance.Contrast(imagem)
             imagem = enhancer.enhance(2.0)
 
-            # Converter para escala de cinza
-            imagem = imagem.convert('L')
-
-            # Aumentar nitidez
+            # 3. Aumentar nitidez moderadamente
             enhancer = ImageEnhance.Sharpness(imagem)
             imagem = enhancer.enhance(2.0)
 
-            # Extrair texto com configuração otimizada
-            # PSM 6 = assume um bloco uniforme de texto
+            # 4. Converter para escala de cinza
+            imagem = imagem.convert('L')
+
+            print(f"Pré-processamento completo. Iniciando OCR...")
+
+            # Configuração do Tesseract
+            # PSM 6 = bloco uniforme de texto
+            # OEM 3 = LSTM + Legacy (melhor para textos mistos)
             custom_config = r'--oem 3 --psm 6 -l por'
-            texto = pytesseract.image_to_string(imagem, config=custom_config)
+
+            # TIMEOUT: 120 segundos
+            texto = pytesseract.image_to_string(imagem, config=custom_config, timeout=120)
+
+            print(f"OCR concluído. {len(texto)} caracteres extraídos")
 
             return texto
 
@@ -152,20 +236,25 @@ class NotaFiscalOCR:
         if produtos_multilinhas:
             return produtos_multilinhas
 
-        # Se não encontrou, tentar padrão normal (1 linha)
-        # Padrões melhorados para capturar produtos
+        # Se não encontrou no formato multilinha, tentar linha única
+        # FORMATO REAL das notas fiscais brasileiras (tudo em 1 linha):
+        # 004 14519 ACEM BOVINO SEM OSSO ... 0,320KG 34,99 11,20
+        # ↑   ↑     ↑ NOME DO PRODUTO      ↑qtd    ↑preço/kg ↑total
+
         padroes = [
-            # Padrão 1: Código + Nome + Quantidade + Unidade + Preço
-            r'^(\d+)\s+(.+?)\s+(\d+[.,]?\d*)\s*(UN|KG|LT|L|PC|CX|PCT)?\s+(?:R\$|RS)?\s*(\d+[.,]\d{2})',
+            # Padrão 1: num_item codigo_produto NOME quantidade unidade preço_unit preço_total
+            # Ex: 004 14519 ACEM BOVINO SEM OSSO 0,320KG 34,99 11,20
+            r'^(\d{2,4})\s+(\d{4,13})\s+(.+?)\s+(\d+[.,]\d+)\s*(KG|UN|LT|L|G|ML|PC|PCT|CX)\s+(\d+[.,]\d{2})\s+(\d+[.,]\d{2})',
 
-            # Padrão 2: Nome + Quantidade + Preço
-            r'^(.+?)\s+(\d+[.,]?\d*)\s*(?:UN|KG|LT|L|PC|CX|PCT)?\s+(?:R\$|RS)?\s*(\d+[.,]\d{2})',
+            # Padrão 2: num_item NOME quantidade unidade preço_unit preço_total (sem código)
+            r'^(\d{2,4})\s+([A-Z].+?)\s+(\d+[.,]\d+)\s*(KG|UN|LT|L|G|ML|PC|PCT|CX)\s+(\d+[.,]\d{2})\s+(\d+[.,]\d{2})',
 
-            # Padrão 3: Nome + Preço (sem quantidade explícita)
-            r'^(.+?)\s+(?:R\$|RS)?\s*(\d+[.,]\d{2})\s*$',
+            # Padrão 3: num_item codigo NOME preço total (2 preços no final, FLEXÍVEL)
+            # Ex: 004 14519 ACEM BOVINO SEM OSSO 34,99 11,20  (OCR errou, sem qtd/unidade)
+            r'^(\d{2,4})\s+(\d{4,13})\s+(.+?)\s+(\d+[.,]\d{2})\s+(\d+[.,]\d{2})\s*$',
 
-            # Padrão 4: Código + Nome + Preço
-            r'^(\d+)\s+(.+?)\s+(?:R\$|RS)?\s*(\d+[.,]\d{2})',
+            # Padrão 4: num_item codigo NOME preço (sem quantidade explícita)
+            r'^(\d{2,4})\s+(\d{4,13})\s+(.+?)\s+(\d+[.,]\d{2})\s*$',
         ]
 
         for linha in linhas:
@@ -197,51 +286,143 @@ class NotaFiscalOCR:
                     grupos = match.groups()
 
                     try:
-                        if i == 0:  # Padrão com código
-                            codigo = grupos[0]
+                        if i == 0:  # Padrão 1: num codigo NOME qtd unidade preço_unit total
+                            # grupos: (num, codigo, nome, qtd, unidade, preço_unit, total)
+                            num_item = grupos[0]
+                            codigo = grupos[1]  # Ignorar
+                            nome_produto = grupos[2].strip()
+                            quantidade_str = grupos[3].replace(',', '.')
+                            unidade = grupos[4].upper()
+                            preco_unit_str = grupos[5].replace(',', '.')
+                            total_str = grupos[6].replace(',', '.')
+
+                            quantidade = float(quantidade_str)
+                            preco_unitario = float(preco_unit_str)
+                            total = float(total_str)
+
+                        elif i == 1:  # Padrão 2: num NOME qtd unidade preço_unit total (sem código)
+                            # grupos: (num, nome, qtd, unidade, preço_unit, total)
+                            num_item = grupos[0]
                             nome_produto = grupos[1].strip()
-                            quantidade = grupos[2].replace(',', '.') if grupos[2] else '1'
-                            preco_str = grupos[4].replace(',', '.')
-                        elif i == 1:  # Nome + Qtd + Preço
-                            nome_produto = grupos[0].strip()
-                            quantidade = grupos[1].replace(',', '.') if grupos[1] else '1'
-                            preco_str = grupos[2].replace(',', '.')
-                        elif i == 2:  # Nome + Preço
-                            nome_produto = grupos[0].strip()
-                            quantidade = '1'
-                            preco_str = grupos[1].replace(',', '.')
-                        else:  # Código + Nome + Preço
-                            nome_produto = grupos[1].strip()
-                            quantidade = '1'
-                            preco_str = grupos[2].replace(',', '.')
+                            quantidade_str = grupos[2].replace(',', '.')
+                            unidade = grupos[3].upper()
+                            preco_unit_str = grupos[4].replace(',', '.')
+                            total_str = grupos[5].replace(',', '.')
 
-                        # Limpar códigos do início do nome do produto
-                        # Remove EAN, SKU e códigos numéricos longos
-                        for padrao_codigo in self.padroes_codigo_remover:
-                            nome_produto = re.sub(padrao_codigo, '', nome_produto)
+                            quantidade = float(quantidade_str)
+                            preco_unitario = float(preco_unit_str)
+                            total = float(total_str)
 
-                        # Limpar código inicial se tiver (números no início)
-                        nome_produto = re.sub(r'^\d+\s+', '', nome_produto)
+                        elif i == 2:  # Padrão 3: num codigo NOME preço_unit total (2 preços)
+                            # grupos: (num, codigo, nome, preço_unit, total)
+                            num_item = grupos[0]
+                            codigo = grupos[1]  # Ignorar
+                            nome_produto = grupos[2].strip()
+                            preco_unitario = float(grupos[3].replace(',', '.'))
+                            total = float(grupos[4].replace(',', '.'))
+                            quantidade = 1.0  # Assume 1 unidade
+                            unidade = 'UN'
 
-                        # Limpar caracteres especiais desnecessários
-                        nome_produto = re.sub(r'^["\'\—\-\s]+', '', nome_produto)
+                        elif i == 3:  # Padrão 4: num codigo NOME preço
+                            # grupos: (num, codigo, nome, preço)
+                            num_item = grupos[0]
+                            codigo = grupos[1]  # Ignorar
+                            nome_produto = grupos[2].strip()
+                            preco_unitario = float(grupos[3].replace(',', '.'))
+                            quantidade = 1.0
+                            unidade = 'UN'
+                            total = preco_unitario
+
+                        else:
+                            continue
+
+                        # LIMPEZA SUPER AGRESSIVA DE CÓDIGOS E PREÇOS (mesma lógica do multilinha)
+                        # Passo 1: Remover preços no final (formato: 34,99 ou 11,20 ou 40.890)
+                        nome_produto = re.sub(r'\s+\d+[.,]\d+(\s+\d+[.,]\d+)*\s*$', '', nome_produto)
+
+                        # Passo 2: Remover quantidade+unidade no final (ex: 0,320KG, 1,565Kg)
+                        nome_produto = re.sub(r'\s+\d+[.,]\d+\s*(?:KG|K6|G|LT|L|ML|UN|PC|PCT|CX)\s*$', '', nome_produto, flags=re.IGNORECASE)
+
+                        # Passo 3: Remover códigos NO INÍCIO
+                        nome_produto = re.sub(r'^\d{4,}\s+', '', nome_produto)
+
+                        # Passo 4: Remover códigos EAN/GTIN (7-13 dígitos)
+                        nome_produto = re.sub(r'\b\d{7,13}\b', '', nome_produto)
+
+                        # Passo 5: Remover códigos SKU/internos (4-6 dígitos), mas não números do nome
+                        nome_produto = re.sub(r'\b\d{4,6}\b(?!\s*(?:GR|G|ML|L|KG|PODERES|,))', '', nome_produto)
+
+                        # Passo 6: Remover códigos de barras longos
+                        nome_produto = re.sub(r'\b\d{10,}\w*\b', '', nome_produto)
+
+                        # Passo 7: Remover números grandes (códigos/preços como 40.890, 25:24)
+                        nome_produto = re.sub(r'\b\d{2,}[.,:]\d{2,}\b', '', nome_produto)
+
+                        # Passo 8: Remover letras isoladas no final (OCR ruim: Ee, O, L, etc)
+                        nome_produto = re.sub(r'\s+[A-Z]{1,2}(?:\s+[A-Z]{1,2})*\s*$', '', nome_produto)
+
+                        # Passo 9: Remover especificações de peso/medida DEPOIS do nome
+                        # Ex: "CAFE 3 PODERES 250G EXTRAFORTE" -> "CAFE 3 PODERES"
+                        nome_produto = re.sub(r'\s+\d+[.,]?\d*\s*(?:G|GR|KG|K6|ML|L|LT)(?:\s+\w+)*\s*$', '', nome_produto, flags=re.IGNORECASE)
+
+                        # Passo 10: Limpar sufixos comuns de tipo/unidade
+                        sufixos_remover = [
+                            'KG', 'K6', 'UN', 'LT', 'L', 'ML', 'G', 'GR', 'PC', 'PCT', 'CX', 'EMB', 'PACOTE',
+                            'RESF', 'CONG', 'CONGEL', 'RESFR', 'RESP', 'CON', 'POTA',
+                            'BDJ', 'GRILO', 'MG', 'GO', 'CUBOS', 'PEDACO', 'TRAZ', 'CORTADA',
+                            'GU', 'UND', 'COMUM', 'VERDE', 'SEMENTE', 'EDU', 'OL', 'PETA',
+                            'UNO', 'TRAD', 'BANO', 'Bnd', 'BD', 'NUR', 'RES', 'RR', 'EE',
+                            'FRIATO', 'SOBRECOKA', 'PETS', 'UERDE', 'DSSO', 'EXTRAFORTE', 'EXTRA',
+                            'TRADICIONAL', 'SUAVE', 'FORTE', 'LEVE', 'DIET', 'LIGHT', 'ZERO'
+                        ]
+                        padrao_sufixos = r'\s+(' + '|'.join(sufixos_remover) + r')(\s+(' + '|'.join(sufixos_remover) + r'))*\s*$'
+                        nome_produto = re.sub(padrao_sufixos, '', nome_produto, flags=re.IGNORECASE)
+
+                        # Passo 10: Limpar caracteres estranhos
+                        nome_produto = re.sub(r'[_\-]{2,}', ' ', nome_produto)
+                        nome_produto = re.sub(r'\s+', ' ', nome_produto)
                         nome_produto = nome_produto.strip()
 
-                        # Validações
-                        # Nome deve ter pelo menos 3 caracteres e não pode ser só números
-                        if len(nome_produto) >= 3 and not nome_produto.isdigit():
-                            preco = float(preco_str)
-                            qtd = float(quantidade)
+                        # Passo 11: Limpar código inicial se tiver
+                        nome_produto = re.sub(r'^\d+\s+', '', nome_produto)
+                        nome_produto = re.sub(r'\s+\d+$', '', nome_produto)
 
-                            # Filtrar preços muito altos ou baixos
-                            if 0.10 < preco < 1000 and 0 < qtd <= 100:
-                                produtos.append({
-                                    'nome': nome_produto.title(),  # Capitalize primeira letra
-                                    'preco': preco,
-                                    'quantidade': qtd
-                                })
-                                produto_encontrado = True
-                                break
+                        # Passo 12: Remover símbolos estranhos
+                        nome_produto = re.sub(r'[\*\+\|»\!]', '', nome_produto)
+
+                        # Passo 13: Limpar caracteres especiais e pontuação
+                        nome_produto = re.sub(r'^["\'\—\-\s\+\*\!]+', '', nome_produto)
+                        nome_produto = re.sub(r'["\'\—\-\s\+\*\!]+$', '', nome_produto)
+                        nome_produto = re.sub(r'\s+', ' ', nome_produto)
+                        nome_produto = nome_produto.strip()
+
+                        # Validações rigorosas
+                        nome_valido = len(nome_produto) >= 3 and not nome_produto.replace(' ', '').isdigit()
+
+                        # Preço unitário razoável
+                        preco_valido = 0.10 < preco_unitario < 500
+
+                        # Quantidade razoável (depende da unidade)
+                        if i < 2:  # Padrões 1 e 2 têm unidade
+                            if unidade in ['KG', 'G', 'LT', 'L', 'ML']:
+                                qtd_valida = 0.001 < quantidade <= 50
+                            else:
+                                qtd_valida = 0 < quantidade <= 100
+                        else:
+                            qtd_valida = True
+
+                        # Total razoável
+                        total_valido = total < 500
+
+                        if nome_valido and preco_valido and qtd_valida and total_valido:
+                            produtos.append({
+                                'nome': nome_produto.title(),
+                                'preco': preco_unitario,
+                                'quantidade': quantidade if i < 2 else 1.0,
+                                'unidade': unidade if i < 2 else 'UN'
+                            })
+                            produto_encontrado = True
+                            break
 
                     except (ValueError, IndexError):
                         continue
@@ -252,13 +433,49 @@ class NotaFiscalOCR:
         """
         Extrai produtos de notas onde produto e preço estão em linhas separadas
 
-        Formato moderno (Brasil 2025):
-        Linha 1: 001 2667 FILE PEITO SUPER FRANGO Kg RESF
-        Linha 2: 1,855KG 19,98  37,06
-                 ↑quantidade ↑preço/kg ↑total (ignoramos o total, usamos preço/kg)
+        Formato moderno de nota fiscal brasileira (2025):
+
+        CABEÇALHO (detectar primeiro):
+        CODIGO DESCRIÇÃO QTDE UN VL TOTAL
+
+        Depois vem os produtos:
+        Linha 1: 002 12556 FILE PEITO SUPER FRANGO Kg RESF
+                 ↑   ↑     ↑ NOME DO PRODUTO
+                 |   └─────── código do produto (EAN/SKU) - REMOVER
+                 └─────────── número do item - REMOVER
+
+        Linha 2: 1,565Kg 19,98  36,06
+                 ↑       ↑      ↑
+                 |       |      └─── total (ignorar)
+                 |       └────────── preço unitário (usar)
+                 └────────────────── quantidade
+
+        Estratégia:
+        1. Encontrar linha com cabeçalho (CODIGO, DESCRIÇÃO, QTDE, etc)
+        2. Extrair produtos APENAS depois do cabeçalho
         """
         produtos = []
         i = 0
+
+        # PASSO 1: Encontrar o início da lista de produtos (linha de cabeçalho)
+        inicio_produtos = 0
+        for idx, linha in enumerate(linhas):
+            linha_upper = linha.upper()
+            # Detectar cabeçalho: deve ter pelo menos 2 dessas palavras
+            palavras_cabecalho = ['CODIGO', 'DESCRICAO', 'QTDE', 'TOTAL', 'VL', 'UN']
+            contagem = sum(1 for palavra in palavras_cabecalho if palavra in linha_upper)
+
+            if contagem >= 2:
+                inicio_produtos = idx + 1  # Produtos começam na linha seguinte
+                print(f"DEBUG - Cabeçalho encontrado na linha {idx}: '{linha}'")
+                print(f"DEBUG - Produtos começam na linha {inicio_produtos}")
+                break
+
+        # Se não encontrou cabeçalho, começa do início
+        if inicio_produtos == 0:
+            print("DEBUG - Cabeçalho não encontrado, processando desde o início")
+
+        i = inicio_produtos
 
         while i < len(linhas) - 1:
             linha_atual = linhas[i].strip()
@@ -269,64 +486,135 @@ class NotaFiscalOCR:
                 i += 1
                 continue
 
-            # Pular se tem palavras-chave
+            # PARAR se encontrar indicadores de fim da lista de produtos
+            palavras_fim = ['SUBTOTAL', 'TOTAL GERAL', 'FORMA DE PAGAMENTO', 'DINHEIRO',
+                           'CARTAO', 'TROCO', 'VALOR PAGO', 'DESCONTO']
+            linha_upper = linha_atual.upper()
+            if any(palavra in linha_upper for palavra in palavras_fim):
+                print(f"DEBUG - Fim da lista de produtos detectado: '{linha_atual}'")
+                break
+
+            # Pular se tem palavras-chave a ignorar
             if any(palavra in linha_atual.upper() for palavra in palavras_ignorar):
                 i += 1
                 continue
 
-            # Padrão: Linha 1 = Código do item + Código do produto + Nome do produto
-            # Exemplo: 001 2667 FILE PEITO SUPER FRANGO Kg RESF
-            # ou: 002 1234 ARROZ TIPO 1 5KG
-            padroes_produto = [
-                r'^(\d{3})\s+(\d+)\s+(.+)$',  # Formato: 001 2667 NOME DO PRODUTO
-            ]
+            # ESTRATÉGIA SUPER MELHORADA: Buscar APENAS LETRAS após TODOS os números
+            #
+            # LINHA 1: numero_item codigo_produto NOME_PRODUTO especificações
+            # Exemplo: 006 789 MERANTE SUKITA 21 LARA UA
+            #          ↑   ↑   ↑ NOME (queremos apenas MERANTE SUKITA)
+            #          |   └─── código (pode ter espaços: 789, 7891, etc)
+            #          └─────── número do item
+            #
+            # Estratégia:
+            # 1. Remover TODOS os números e espaços do INÍCIO
+            # 2. Capturar primeira sequência de PALAVRAS (letras)
+            # 3. Parar antes de números+unidade (250G, 2L, etc)
 
-            match_produto = None
-            for padrao in padroes_produto:
-                match_produto = re.search(padrao, linha_atual)
-                if match_produto:
-                    break
+            nome_produto = None
 
-            if match_produto:
-                # Pegar apenas o nome do produto (grupo 3)
-                nome_produto = match_produto.group(3).strip()
+            # NOVO REGEX: Remove TUDO que não é letra no início, pega só letras/espaços
+            # Exemplo: "006 789 MERANTE SUKITA 21 LARA" -> captura "MERANTE SUKITA"
+            #          "04 2667 FILE PEITO SUPER FRANGO" -> captura "FILE PEITO SUPER FRANGO"
 
-                # Limpar sufixos comuns (Kg, UN, RESF, etc)
-                nome_produto = re.sub(r'\s+(KG|UN|LT|L|PC|RESF|CONG|PCT|CX)\s*$', '', nome_produto, flags=re.IGNORECASE)
-                nome_produto = nome_produto.strip()
+            # Passo 1: Remover números e espaços do início
+            linha_limpa = re.sub(r'^[\d\s]+', '', linha_atual)
 
-                # Linha 2 = Quantidade + Unidade + Preço Unitário + Total
+            # Passo 2: Capturar apenas letras e espaços (nome), parar em número isolado ou especificação
+            match_nome = re.search(r'^([A-ZÇÁÉÍÓÚÀÃÕÂÊÔ][A-ZÇÁÉÍÓÚÀÃÕÂÊÔ\s]+?)(?:\s+\d+|\s+ka|\s+kg|\s+[A-Z]{1,2}\s*$|$)', linha_limpa, re.IGNORECASE)
+
+            if match_nome:
+                nome_produto = match_nome.group(1).strip()
+                print(f"DEBUG - Nome extraído: '{linha_atual}' -> linha limpa: '{linha_limpa}' -> nome: '{nome_produto}'")
+
+            if nome_produto:
+                # LIMPEZA SIMPLIFICADA (já capturamos só o essencial)
+
+                # Passo 1: Remover qualquer número de 4+ dígitos (códigos restantes)
+                nome_produto = re.sub(r'\b\d{4,}\b', '', nome_produto)
+
+                # Passo 2: Remover sufixos de especificação/unidade comuns
+                sufixos_remover = [
+                    'KG', 'K6', 'UN', 'LT', 'L', 'ML', 'G', 'GR', 'PC', 'PCT', 'CX', 'EMB',
+                    'RESF', 'CONG', 'CONGEL', 'RESFR', 'RESP', 'CON',
+                    'GU', 'GO', 'MG', 'EDU', 'OL', 'NUR', 'RES', 'RR', 'EE', 'Ee',
+                    'FRIATO', 'PETS', 'UERDE', 'DSSO', 'SOBRECOKA'
+                ]
+                padrao_sufixos = r'\s+(' + '|'.join(sufixos_remover) + r')(\s+(' + '|'.join(sufixos_remover) + r'))*\s*$'
+                nome_produto = re.sub(padrao_sufixos, '', nome_produto, flags=re.IGNORECASE)
+
+                # Passo 3: Remover símbolos e pontuação estranha
+                nome_produto = re.sub(r'[\*\+\|»\!]', '', nome_produto)
+
+                # Passo 4: Limpar espaços múltiplos
+                nome_produto = re.sub(r'\s+', ' ', nome_produto).strip()
+
+                print(f"DEBUG - Nome após limpeza: '{nome_produto}'")
+
+                # LINHA 2: Quantidade + Unidade + Preço Unitário + Total
+                # Objetivo: Extrair apenas QUANTIDADE e PREÇO (ignorar resto)
+                #
                 # Exemplos:
-                # 1,855KG 19,98  37,06
-                # 2UN 5,50  11,00
-                # 0,500KG 12,90  6,45
+                # 1UN 12,97 12,97  → qtd=1, unidade=UN, preço=12,97
+                # 1,565KG 19,98 37,06  → qtd=1.565, unidade=KG, preço=19,98
+                # 2 5,50 11,00  → qtd=2, unidade=UN, preço=5,50
+                #
+                # Estratégia: buscar PRIMEIRO número (quantidade) e PRIMEIRO preço (formato X,XX)
+
                 padroes_preco = [
-                    # Padrão: quantidade+unidade preço_unitario total
-                    r'^(\d+[.,]?\d*)\s*(KG|UN|LT|L|PC|PCT|CX)?\s+(\d+[.,]\d{2})\s+(\d+[.,]\d{2})',
+                    # Padrão 1: quantidade + unidade + preço + total
+                    # Ex: 1UN 12,97 12,97 ou 1,565KG 19,98 37,06
+                    r'^\s*(\d+[.,]?\d*)\s*(KG|K6|UN|LT|L|ML|G|PC|PCT|CX|JUN)?\s+(\d+[.,]\d{2})',
+
+                    # Padrão 2: apenas quantidade e preço (sem unidade)
+                    # Ex: 2 5,50 11,00
+                    r'^\s*(\d+[.,]?\d*)\s+(\d+[.,]\d{2})',
                 ]
 
-                for padrao_preco in padroes_preco:
+                for idx_padrao, padrao_preco in enumerate(padroes_preco):
                     match_preco = re.search(padrao_preco, linha_seguinte, re.IGNORECASE)
 
                     if match_preco:
                         try:
-                            quantidade_str = match_preco.group(1).replace(',', '.')
-                            unidade = match_preco.group(2) or 'UN'
-                            preco_unitario_str = match_preco.group(3).replace(',', '.')
-                            # total_str = match_preco.group(4)  # Não precisamos do total
+                            grupos = match_preco.groups()
 
+                            # Extrair quantidade
+                            quantidade_str = grupos[0].replace(',', '.')
                             quantidade = float(quantidade_str)
-                            preco_unitario = float(preco_unitario_str)
 
-                            # Validar
-                            if len(nome_produto) >= 3 and 0.10 < preco_unitario < 1000 and 0 < quantidade <= 100:
+                            # Extrair unidade (se existir)
+                            if idx_padrao == 0 and len(grupos) >= 3:
+                                # Padrão 1: tem unidade
+                                unidade = (grupos[1] or 'UN').upper().replace('JUN', 'UN')
+                                preco_str = grupos[2].replace(',', '.')
+                            else:
+                                # Padrão 2: sem unidade
+                                unidade = 'UN'
+                                preco_str = grupos[1].replace(',', '.')
+
+                            # Pegar APENAS o primeiro preço (ignorar total)
+                            preco_unitario = float(preco_str)
+
+                            print(f"DEBUG - Linha 2: '{linha_seguinte}' -> qtd={quantidade}, unidade={unidade}, preço={preco_unitario}")
+
+                            # Validações simples
+                            nome_valido = len(nome_produto) >= 3 and not nome_produto.replace(' ', '').isdigit()
+                            preco_valido = 0.10 < preco_unitario < 1000
+                            qtd_valida = 0 < quantidade <= 100
+
+                            if nome_valido and preco_valido and qtd_valida:
+                                # 🤖 CORREÇÃO INTELIGENTE: Corrigir erros de OCR no nome
+                                nome_corrigido = self.corrigir_palavras_no_nome(nome_produto)
+
                                 produtos.append({
-                                    'nome': nome_produto.title(),
-                                    'preco': preco_unitario,  # preço unitário (por kg, por unidade, etc)
-                                    'quantidade': quantidade
+                                    'nome': nome_corrigido.title(),
+                                    'preco': preco_unitario,  # preço unitário (por kg ou por unidade)
+                                    'quantidade': quantidade,
+                                    'unidade': unidade  # adicionar unidade para referência
                                 })
 
-                                i += 2  # Pula as duas linhas
+                                i += 2  # Pula as duas linhas processadas
                                 break  # Sai do loop de padrões
 
                         except (ValueError, IndexError):
@@ -335,6 +623,67 @@ class NotaFiscalOCR:
             i += 1
 
         return produtos
+
+    def corrigir_nome_produto_com_ia(self, nome_ocr: str) -> str:
+        """
+        Corrige erros de OCR no nome do produto usando similaridade de strings
+
+        Exemplos:
+        - "CARE" -> "CAFE" (similaridade 75%)
+        - "NELAO" -> "MELAO" (similaridade 80%)
+        - "RARINHA" -> "FARINHA" (similaridade 85%)
+        """
+        nome_upper = nome_ocr.upper().strip()
+
+        # Se for muito curto, não tentar corrigir
+        if len(nome_upper) < 3:
+            return nome_ocr
+
+        # Se já existe exatamente no dicionário, retornar original
+        if nome_upper in self.produtos_comuns_upper:
+            return nome_ocr
+
+        # Procurar produto similar no dicionário
+        melhor_match = None
+        melhor_similaridade = 0.0
+        THRESHOLD = 0.75  # 75% de similaridade mínima
+
+        for produto_conhecido in self.produtos_comuns_upper:
+            # Calcular similaridade usando SequenceMatcher
+            similaridade = SequenceMatcher(None, nome_upper, produto_conhecido).ratio()
+
+            if similaridade > melhor_similaridade and similaridade >= THRESHOLD:
+                melhor_similaridade = similaridade
+                melhor_match = produto_conhecido
+
+        # Se encontrou um match bom, usar correção
+        if melhor_match and melhor_similaridade >= THRESHOLD:
+            print(f"🤖 CORREÇÃO OCR: '{nome_ocr}' -> '{melhor_match}' (similaridade: {melhor_similaridade:.0%})")
+            return melhor_match
+
+        # Se não encontrou nada similar, retornar original
+        return nome_ocr
+
+    def corrigir_palavras_no_nome(self, nome: str) -> str:
+        """
+        Corrige palavra por palavra no nome do produto
+
+        Exemplo: "CARE COM ACUCAR" -> "CAFE COM AÇUCAR"
+        """
+        palavras = nome.split()
+        palavras_corrigidas = []
+
+        for palavra in palavras:
+            # Pular palavras muito curtas (preposições, etc)
+            if len(palavra) <= 2:
+                palavras_corrigidas.append(palavra)
+                continue
+
+            # Tentar corrigir a palavra
+            palavra_corrigida = self.corrigir_nome_produto_com_ia(palavra)
+            palavras_corrigidas.append(palavra_corrigida)
+
+        return ' '.join(palavras_corrigidas)
 
     def extrair_total(self, texto: str) -> Optional[float]:
         """Extrai o valor total da compra"""

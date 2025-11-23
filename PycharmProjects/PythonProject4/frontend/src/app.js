@@ -100,15 +100,24 @@ async function buscarProdutos() {
                 ? `${API_URL}/api/buscar?usuario_nome=${encodeURIComponent(usuarioLogado)}`
                 : `${API_URL}/api/buscar`;
 
+            // Adicionar localização ao corpo da requisição se disponível
+            const requestBody = {
+                termo: termo,
+                supermercados: selectedMarkets.length > 0 ? selectedMarkets : null
+            };
+
+            // Se temos localização, adicionar ao request para ordenação por proximidade
+            if (userLocation) {
+                requestBody.latitude = userLocation.latitude;
+                requestBody.longitude = userLocation.longitude;
+            }
+
             response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    termo: termo,
-                    supermercados: selectedMarkets.length > 0 ? selectedMarkets : null
-                })
+                body: JSON.stringify(requestBody)
             });
         }
 
@@ -188,9 +197,15 @@ function exibirResultados(produtos, comGeolocalizacao = false) {
     const resultsContainer = document.getElementById('results');
     resultsContainer.innerHTML = '';
 
-    // Sort by price (ou por custo_total_real se tiver geolocalização)
+    // Verifica se tem ordenação por distância (da API)
+    const temDistancia = produtos[0]?.distancia_km !== undefined && produtos[0]?.distancia_km < 9999;
+
+    // Sort by price (ou por custo_total_real se tiver geolocalização otimizada, ou por distância se tiver)
     if (comGeolocalizacao && produtos[0]?.custo_total_real) {
         produtos.sort((a, b) => a.custo_total_real - b.custo_total_real);
+    } else if (temDistancia) {
+        // Já vem ordenado por distância da API, apenas manter a ordem
+        // produtos.sort((a, b) => a.distancia_km - b.distancia_km);
     } else {
         produtos.sort((a, b) => a.preco - b.preco);
     }
@@ -201,18 +216,35 @@ function exibirResultados(produtos, comGeolocalizacao = false) {
 
         const promoTag = produto.em_promocao ? '<span class="promo-badge">🔥 PROMOÇÃO</span>' : '';
 
+        // Verifica se este produto tem distância
+        const produtoTemDistancia = produto.distancia_km !== undefined && produto.distancia_km < 9999;
+
         let bestPriceTag = '';
         if (comGeolocalizacao && index === 0) {
             bestPriceTag = '<span class="promo-badge" style="background: #4CAF50;">⭐ MELHOR CUSTO-BENEFÍCIO</span>';
-        } else if (!comGeolocalizacao && index === 0) {
+        } else if (produtoTemDistancia && index === 0) {
+            bestPriceTag = '<span class="promo-badge" style="background: #2196F3;">📍 MAIS PRÓXIMO</span>';
+        } else if (!comGeolocalizacao && !produtoTemDistancia && index === 0) {
             bestPriceTag = '<span class="promo-badge" style="background: #4CAF50;">💰 MELHOR PREÇO</span>';
         }
 
         const dataAtualizacao = produto.data_coleta ? formatarData(produto.data_coleta) : 'Data não disponível';
 
-        // Informações de geolocalização com análise completa
+        // Informações de geolocalização - mostrar distância simples se não for busca otimizada
         let geoInfo = '';
-        if (comGeolocalizacao && produto.distancia_km !== undefined) {
+
+        // Se tem distância mas não é busca otimizada, mostrar apenas a distância
+        if (!comGeolocalizacao && produtoTemDistancia && produto.distancia_km !== null) {
+            geoInfo = `
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 6px;">
+                    <span style="font-size: 18px;">📍</span>
+                    <div>
+                        <strong style="color: #1976d2;">${produto.distancia_km.toFixed(1)} km</strong>
+                        <span style="color: #666; font-size: 13px; margin-left: 4px;">de você</span>
+                    </div>
+                </div>
+            `;
+        } else if (comGeolocalizacao && produto.distancia_km !== undefined) {
             const custoDeslocamento = produto.custo_deslocamento?.custo_total || 0;
             const custoTransporte = produto.custo_deslocamento?.custo_transporte || 0;
             const custoTempo = produto.custo_deslocamento?.custo_tempo || 0;
@@ -379,11 +411,44 @@ function formatarData(dataString) {
 
 // PWA Setup
 function setupPWA() {
-    // Register service worker
+    // Register service worker com auto-atualização
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('Service Worker registered'))
+            .then(registration => {
+                console.log('Service Worker registrado com sucesso:', registration);
+
+                // Verifica atualizações a cada 30 segundos
+                setInterval(() => {
+                    registration.update();
+                }, 30000);
+
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('Nova versão disponível! Forçando atualização...');
+
+                                // Envia mensagem para o novo SW ativar imediatamente
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+
+                                // Mostra notificação ao usuário
+                                showUpdateNotification();
+                            }
+                        });
+                    }
+                });
+            })
             .catch(err => console.log('Service Worker registration failed:', err));
+
+        // Escuta quando um novo SW assume o controle
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            refreshing = true;
+            console.log('Service Worker atualizado! Recarregando página...');
+            window.location.reload();
+        });
     }
 
     // Install prompt
@@ -392,6 +457,53 @@ function setupPWA() {
         deferredPrompt = e;
         document.getElementById('installPrompt').classList.add('show');
     });
+}
+
+function showUpdateNotification() {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 24px;
+        background: #10b981;
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 99999;
+        font-size: 14px;
+        font-weight: 500;
+        animation: slideIn 0.3s ease-out;
+    `;
+
+    notification.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span>🔄 Nova versão disponível! Atualizando...</span>
+        </div>
+    `;
+
+    // Adiciona animação
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(notification);
+
+    // Remove após 3 segundos
+    setTimeout(() => {
+        notification.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 function instalarApp() {
@@ -496,10 +608,25 @@ async function carregarSupermercados() {
                 chip.className = 'filter-chip';
                 chip.dataset.market = super_.nome.toLowerCase().replace(/\s+/g, '_');
                 chip.textContent = super_.nome;
+                chip.style.position = 'relative';
 
+                // Click normal = filtrar
                 chip.addEventListener('click', () => {
                     toggleMarketFilter(chip);
                 });
+
+                // Double click = ver promoções
+                chip.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    verPromocoesSupermercado(super_.nome);
+                });
+
+                // Adicionar ícone de promoção
+                const promoIcon = document.createElement('span');
+                promoIcon.innerHTML = ' 🔥';
+                promoIcon.style.cssText = 'font-size: 10px; opacity: 0.7;';
+                promoIcon.title = 'Clique duplo para ver promoções';
+                chip.appendChild(promoIcon);
 
                 filtersContainer.appendChild(chip);
             });
@@ -509,4 +636,221 @@ async function carregarSupermercados() {
     } catch (error) {
         console.error('Erro ao carregar supermercados:', error);
     }
+}
+
+// Buscar e exibir promoções de um supermercado
+async function verPromocoesSupermercado(supermercado) {
+    console.log('Buscando promoções para:', supermercado);
+
+    // Mostrar modal de loading
+    const modalLoading = criarModalPromocoes('Carregando promoções...', []);
+    document.body.appendChild(modalLoading);
+
+    try {
+        let url = `${API_URL}/api/promocoes/${encodeURIComponent(supermercado)}`;
+
+        // Adicionar localização se disponível
+        if (userLocation) {
+            url += `?latitude=${userLocation.latitude}&longitude=${userLocation.longitude}`;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // Remover loading
+        modalLoading.remove();
+
+        if (data.total === 0) {
+            const modalVazio = criarModalPromocoes(
+                `${supermercado} - Sem Promoções`,
+                [],
+                data.message || 'Nenhuma promoção disponível no momento'
+            );
+            document.body.appendChild(modalVazio);
+        } else {
+            const modal = criarModalPromocoes(
+                `🔥 Promoções ${supermercado}`,
+                data.promocoes,
+                null,
+                data.ordenado_por_proximidade
+            );
+            document.body.appendChild(modal);
+        }
+    } catch (error) {
+        modalLoading.remove();
+        console.error('Erro ao buscar promoções:', error);
+        alert('Erro ao buscar promoções. Tente novamente.');
+    }
+}
+
+// Criar modal de promoções
+function criarModalPromocoes(titulo, promocoes, mensagemVazio = null, ordenadoPorProximidade = false) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        animation: fadeIn 0.3s ease-out;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: white;
+        border-radius: 16px;
+        max-width: 800px;
+        max-height: 80vh;
+        width: 90%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        animation: slideUp 0.3s ease-out;
+    `;
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = `
+        padding: 20px;
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    `;
+
+    header.innerHTML = `
+        <h2 style="margin: 0; font-size: 20px;">${titulo}</h2>
+        <button onclick="this.closest('.promocoes-modal').remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">×</button>
+    `;
+
+    // Body
+    const body = document.createElement('div');
+    body.style.cssText = `
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+    `;
+
+    if (mensagemVazio) {
+        body.innerHTML = `
+            <p style="text-align: center; color: #666; padding: 40px 20px;">
+                ${mensagemVazio}
+            </p>
+        `;
+    } else if (promocoes.length === 0) {
+        body.innerHTML = `<p style="text-align: center; color: #666;">Carregando...</p>`;
+    } else {
+        // Exibir info de ordenação
+        if (ordenadoPorProximidade) {
+            const infoOrdenacao = document.createElement('div');
+            infoOrdenacao.style.cssText = `
+                background: #e3f2fd;
+                padding: 12px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                font-size: 14px;
+                color: #1976d2;
+            `;
+            infoOrdenacao.innerHTML = '📍 Ordenado por proximidade';
+            body.appendChild(infoOrdenacao);
+        }
+
+        // Cards de promoções
+        promocoes.forEach((promo, index) => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};
+                padding: 15px;
+                border-radius: 10px;
+                margin-bottom: 12px;
+                border: 2px solid #ff6b6b;
+                transition: transform 0.2s;
+            `;
+
+            card.onmouseenter = () => card.style.transform = 'scale(1.02)';
+            card.onmouseleave = () => card.style.transform = 'scale(1)';
+
+            const descontoTag = promo.desconto_percentual > 0
+                ? `<span style="background: #ff6b6b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">-${promo.desconto_percentual}%</span>`
+                : '';
+
+            const precoOriginal = promo.preco_original && promo.preco_original > promo.preco
+                ? `<span style="text-decoration: line-through; color: #999; font-size: 14px; margin-right: 8px;">R$ ${promo.preco_original.toFixed(2)}</span>`
+                : '';
+
+            const distanciaInfo = promo.distancia_km && promo.distancia_km < 9999
+                ? `<div style="color: #1976d2; font-size: 13px; margin-top: 8px;">📍 ${promo.distancia_km.toFixed(1)} km de você</div>`
+                : '';
+
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 16px; margin-bottom: 5px;">${promo.nome}</div>
+                        ${promo.marca ? `<div style="color: #666; font-size: 13px; margin-bottom: 8px;">${promo.marca}</div>` : ''}
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            ${precoOriginal}
+                            <span style="font-size: 22px; font-weight: bold; color: #ff6b6b;">R$ ${promo.preco.toFixed(2)}</span>
+                            ${descontoTag}
+                        </div>
+                        ${promo.economia > 0 ? `<div style="color: #4CAF50; font-size: 13px; margin-top: 4px;">💰 Economia: R$ ${promo.economia.toFixed(2)}</div>` : ''}
+                        ${distanciaInfo}
+                    </div>
+                </div>
+            `;
+
+            body.appendChild(card);
+        });
+
+        // Footer com total
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            padding: 15px 20px;
+            background: #f5f5f5;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-weight: 600;
+        `;
+        footer.textContent = `Total: ${promocoes.length} promoções encontradas`;
+        content.appendChild(footer);
+    }
+
+    // Adicionar animações
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    content.appendChild(header);
+    content.appendChild(body);
+    modal.appendChild(content);
+    modal.className = 'promocoes-modal';
+
+    // Fechar ao clicar fora
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+
+    return modal;
 }

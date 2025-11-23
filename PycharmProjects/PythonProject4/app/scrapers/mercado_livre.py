@@ -1,73 +1,92 @@
-from .base import BaseScraper
 from typing import List, Dict
-from urllib.parse import quote
+import requests
+import time
 
 
-class MercadoLivreScraper(BaseScraper):
-    """Scraper for Mercado Livre marketplace"""
+class MercadoLivreScraper:
+    """Scraper for Mercado Livre using official API"""
 
     def __init__(self):
-        super().__init__()
-        self.base_url = "https://www.mercadolivre.com.br"
+        self.api_url = "https://api.mercadolibre.com"
+        self.site_id = "MLB"  # Brasil
 
     def get_supermercado_name(self) -> str:
-        return "mercado_livre"
+        return "Mercado Livre"
 
     def search(self, termo: str) -> List[Dict]:
-        """Search for products on Mercado Livre"""
-        termo_encoded = quote(termo)
-        # Add category filter for grocery items
-        search_url = f"{self.base_url}/jm/search?as_word={termo_encoded}"
+        """Search for products on Mercado Livre using official API"""
+        try:
+            # Buscar apenas em categorias de supermercado/alimentos
+            categorias_alimentos = [
+                "MLB1403",  # Alimentos e Bebidas
+                "MLB1576",  # Casa, Móveis e Decoração
+            ]
 
-        soup = self._get_page(search_url)
-        if not soup:
+            todos_produtos = []
+
+            for categoria in categorias_alimentos:
+                time.sleep(0.5)  # Rate limiting
+
+                # API endpoint para busca
+                url = f"{self.api_url}/sites/{self.site_id}/search"
+                params = {
+                    'q': termo,
+                    'category': categoria,
+                    'limit': 20,
+                    'offset': 0
+                }
+
+                response = requests.get(url, params=params, timeout=10)
+                if response.status_code != 200:
+                    continue
+
+                data = response.json()
+                results = data.get('results', [])
+
+                for item in results:
+                    try:
+                        # Verificar se é frete grátis ou promoção
+                        shipping = item.get('shipping', {})
+                        em_promocao = shipping.get('free_shipping', False)
+
+                        # Pegar preço original se houver
+                        preco_original = None
+                        if 'original_price' in item and item['original_price']:
+                            preco_original = item['original_price']
+                            em_promocao = True
+
+                        produto = {
+                            'nome': item.get('title', '').strip(),
+                            'marca': None,  # ML API não retorna marca diretamente
+                            'preco': float(item.get('price', 0)),
+                            'preco_original': preco_original,
+                            'em_promocao': em_promocao,
+                            'url': item.get('permalink', ''),
+                            'supermercado': self.get_supermercado_name(),
+                            'disponivel': item.get('available_quantity', 0) > 0,
+                            'thumbnail': item.get('thumbnail', '')
+                        }
+
+                        # Só adicionar se tiver preço válido
+                        if produto['preco'] > 0:
+                            todos_produtos.append(produto)
+
+                    except Exception as e:
+                        print(f"Erro ao processar item do Mercado Livre: {e}")
+                        continue
+
+                # Limitar a primeira categoria se já tiver resultados
+                if todos_produtos:
+                    break
+
+            # Remover duplicatas e limitar a 20 produtos
+            produtos_unicos = {}
+            for p in todos_produtos:
+                if p['nome'] not in produtos_unicos:
+                    produtos_unicos[p['nome']] = p
+
+            return list(produtos_unicos.values())[:20]
+
+        except Exception as e:
+            print(f"Erro na API do Mercado Livre: {e}")
             return []
-
-        produtos = []
-
-        # Mercado Livre uses ol > li structure for search results
-        product_items = soup.find_all('li', class_=lambda x: x and 'ui-search-layout__item' in str(x)) or \
-                       soup.find_all('div', class_=lambda x: x and 'ui-search-result' in str(x))
-
-        for item in product_items[:20]:
-            try:
-                # Extract product name
-                nome_elem = item.find('h2', class_=lambda x: x and 'ui-search-item__title' in str(x)) or \
-                           item.find('a', class_=lambda x: x and 'ui-search-link' in str(x))
-                if not nome_elem:
-                    continue
-                nome = nome_elem.text.strip()
-
-                # Extract price
-                preco_elem = item.find('span', class_=lambda x: x and 'andes-money-amount__fraction' in str(x)) or \
-                            item.find('span', class_=lambda x: x and 'price-tag-fraction' in str(x))
-                if not preco_elem:
-                    continue
-
-                preco_text = preco_elem.text.strip()
-                preco = self._clean_price(preco_text)
-                if not preco:
-                    continue
-
-                # Extract URL
-                link_elem = item.find('a', href=True)
-                url = link_elem['href'] if link_elem else ""
-
-                # Check if it's on sale (free shipping can indicate better deals)
-                em_promocao = bool(item.find(string=lambda x: x and 'frete grátis' in str(x).lower()))
-
-                produtos.append({
-                    'nome': nome,
-                    'marca': None,
-                    'preco': preco,
-                    'em_promocao': em_promocao,
-                    'url': url,
-                    'supermercado': self.get_supermercado_name(),
-                    'disponivel': True
-                })
-
-            except Exception as e:
-                print(f"Error parsing Mercado Livre product: {e}")
-                continue
-
-        return produtos

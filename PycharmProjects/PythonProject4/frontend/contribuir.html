@@ -423,6 +423,35 @@
                 });
 
                 if (response.ok) {
+                    const data = await response.json();
+
+                    // Mensagem de sucesso base
+                    let mensagemCompleta = '✅ Preço adicionado com sucesso!';
+
+                    // Adicionar informação de tokens ganhos
+                    if (data.recompensa) {
+                        mensagemCompleta += `<br>💰 +${data.recompensa.tokens_ganhos} tokens (Saldo: ${Math.floor(data.recompensa.saldo_atual)})`;
+                    }
+
+                    // Adicionar feedback da validação automática
+                    if (data.validacao && data.validacao.sucesso) {
+                        const val = data.validacao;
+                        const alteracao = val.alteracao_reputacao || 0;
+
+                        if (alteracao > 0) {
+                            mensagemCompleta += `<br><span style="color: #4CAF50;">✅ Reputação: +${alteracao} pts - ${val.mensagem}</span>`;
+                        } else if (alteracao < 0) {
+                            mensagemCompleta += `<br><span style="color: #f44336;">⚠️ Reputação: ${alteracao} pts - ${val.mensagem}</span>`;
+                        } else {
+                            if (val.mensagem && !val.mensagem.includes('Poucos preços')) {
+                                mensagemCompleta += `<br><span style="color: #666;">ℹ️ ${val.mensagem}</span>`;
+                            } else if (val.mensagem && val.mensagem.includes('Poucos preços')) {
+                                mensagemCompleta += `<br><span style="color: #999;">⏳ Aguardando mais preços para validação automática</span>`;
+                            }
+                        }
+                    }
+
+                    successMsg.innerHTML = mensagemCompleta;
                     successMsg.classList.add('show');
                     document.getElementById('contributeForm').reset();
                     loadStats(); // Reload stats
@@ -430,10 +459,10 @@
                     // Scroll to success message
                     successMsg.scrollIntoView({ behavior: 'smooth' });
 
-                    // Hide success message after 5 seconds
+                    // Hide success message after 8 seconds (mais tempo para ler validação)
                     setTimeout(() => {
                         successMsg.classList.remove('show');
-                    }, 5000);
+                    }, 8000);
                 } else {
                     const error = await response.json();
                     errorMsg.textContent = `❌ ${error.detail || 'Erro ao adicionar preço'}`;

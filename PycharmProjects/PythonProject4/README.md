@@ -330,3 +330,5 @@ Se encontrar problemas:
 ---
 
 **Desenvolvido com ❤️ para economizar nas compras!** 🛒💰
+# Appdemercados
+# Appdemercados

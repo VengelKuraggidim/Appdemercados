@@ -4,6 +4,10 @@
 echo "🚀 Iniciando Comparador de Preços..."
 echo "===================================="
 
+# Injeta timestamp no Service Worker
+echo "🔄 Atualizando Service Worker com nova versão..."
+python inject_build_time.py
+
 # Mata processos existentes nas portas
 echo "🔄 Parando servidores anteriores..."
 lsof -ti:8000 | xargs kill -9 2>/dev/null

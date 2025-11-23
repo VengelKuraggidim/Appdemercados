@@ -266,8 +266,16 @@
 
                 const data = await response.json();
 
+                console.log('Resposta completa do servidor:', data);
+                console.log('Texto completo:', data.texto_completo);
+                console.log('Total de caracteres:', data.total_caracteres);
+                console.log('Total de linhas:', data.total_linhas);
+                console.log('Debug info:', data.debug_info);
+
                 // Mostrar texto extraído
-                document.getElementById('textoExtraido').value = data.texto_completo || '';
+                const textoExtraido = data.texto_completo || data.todas_linhas?.join('\n') || '';
+                console.log('Texto a ser exibido:', textoExtraido);
+                document.getElementById('textoExtraido').value = textoExtraido;
 
                 // Preencher campos
                 document.getElementById('supermercado').value = data.supermercado_identificado || '';
@@ -281,14 +289,20 @@
 
                 // Carregar produtos
                 produtos = data.produtos || [];
+                console.log('Produtos encontrados:', produtos);
                 renderizarProdutos();
+
+                // Se não houver texto, mostrar informação
+                if (!textoExtraido || textoExtraido.trim() === '') {
+                    alert('⚠️ Nenhum texto foi extraído da imagem. Verifique se a imagem está nítida e com boa iluminação.');
+                }
 
                 document.getElementById('loading').classList.remove('show');
                 document.getElementById('results').style.display = 'grid';
 
             } catch (error) {
-                console.error('Erro:', error);
-                alert('Erro ao processar imagem');
+                console.error('Erro completo:', error);
+                alert('Erro ao processar imagem: ' + error.message);
                 document.getElementById('loading').classList.remove('show');
             }
         });
