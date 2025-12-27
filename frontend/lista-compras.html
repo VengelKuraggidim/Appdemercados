@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <title>Lista de Compras - Comparador de Precos</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+            --danger-color: #f44336;
+            --warning-color: #ff9800;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 { font-size: 1.5rem; margin-bottom: 5px; }
+        .header p { opacity: 0.9; font-size: 0.9rem; }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .input-group button {
+            padding: 12px 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .item-list {
+            list-style: none;
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            gap: 10px;
+        }
+
+        .item:last-child { border-bottom: none; }
+
+        .item.comprado {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
+        .item input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .item-info { flex: 1; }
+        .item-name { font-weight: 500; }
+        .item-price { font-size: 0.85rem; color: #666; margin-top: 3px; }
+
+        .item-delete {
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn-compare {
+            width: 100%;
+            padding: 15px;
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn-compare:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .resultado {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .resultado h3 { margin-bottom: 15px; }
+
+        .melhor-mercado {
+            background: rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .melhor-mercado .nome { font-size: 1.3rem; font-weight: bold; }
+        .melhor-mercado .total { font-size: 1.5rem; margin-top: 5px; }
+        .melhor-mercado .economia { color: #90EE90; margin-top: 5px; }
+
+        .outros-mercados { margin-top: 15px; }
+        .outros-mercados h4 { margin-bottom: 10px; opacity: 0.9; }
+
+        .mercado-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .empty-state span { font-size: 3rem; display: block; margin-bottom: 10px; }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Lista de Compras</h1>
+        <p>Compare precos e economize!</p>
+    </div>
+
+    <div class="container">
+        <a href="/" class="back-link">← Voltar</a>
+
+        <div class="card">
+            <h2>Adicionar Item</h2>
+            <div class="input-group">
+                <input type="text" id="itemInput" placeholder="Nome do produto (ex: Arroz 5kg)">
+                <button onclick="adicionarItem()">+</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Minha Lista</h2>
+            <ul class="item-list" id="listaItens">
+                <li class="empty-state">
+                    <span>🛒</span>
+                    <p>Sua lista esta vazia</p>
+                    <p>Adicione produtos acima!</p>
+                </li>
+            </ul>
+
+            <button class="btn-compare" id="btnComparar" onclick="compararPrecos()" disabled>
+                Comparar Precos
+            </button>
+        </div>
+
+        <div id="resultado"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let listaId = null;
+        let itens = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const usuario = localStorage.getItem('usuario_nome');
+            if (!usuario) {
+                alert('Por favor, faca login primeiro!');
+                window.location.href = '/';
+                return;
+            }
+
+            carregarOuCriarLista();
+
+            document.getElementById('itemInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') adicionarItem();
+            });
+        });
+
+        async function carregarOuCriarLista() {
+            const usuario = localStorage.getItem('usuario_nome');
+
+            try {
+                const response = await fetch(`${API_URL}/api/listas/usuario/${usuario}`);
+                const data = await response.json();
+
+                if (data.listas && data.listas.length > 0) {
+                    listaId = data.listas[0].id;
+                    await carregarItens();
+                } else {
+                    await criarNovaLista();
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                await criarNovaLista();
+            }
+        }
+
+        async function criarNovaLista() {
+            const usuario = localStorage.getItem('usuario_nome');
+
+            try {
+                const response = await fetch(`${API_URL}/api/listas?usuario_nome=${usuario}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome: 'Minha Lista' })
+                });
+                const data = await response.json();
+                listaId = data.id;
+            } catch (error) {
+                console.error('Erro ao criar lista:', error);
+            }
+        }
+
+        async function carregarItens() {
+            try {
+                const response = await fetch(`${API_URL}/api/listas/${listaId}`);
+                const data = await response.json();
+                itens = data.itens || [];
+                renderizarItens();
+            } catch (error) {
+                console.error('Erro ao carregar itens:', error);
+            }
+        }
+
+        function renderizarItens() {
+            const lista = document.getElementById('listaItens');
+            const btnComparar = document.getElementById('btnComparar');
+
+            if (itens.length === 0) {
+                lista.innerHTML = `
+                    <li class="empty-state">
+                        <span>🛒</span>
+                        <p>Sua lista esta vazia</p>
+                    </li>
+                `;
+                btnComparar.disabled = true;
+                return;
+            }
+
+            btnComparar.disabled = false;
+
+            lista.innerHTML = itens.map(item => `
+                <li class="item ${item.comprado ? 'comprado' : ''}" data-id="${item.id}">
+                    <input type="checkbox" ${item.comprado ? 'checked' : ''}
+                           onchange="toggleComprado(${item.id}, this.checked)">
+                    <div class="item-info">
+                        <div class="item-name">${item.nome_produto} (${item.quantidade}x)</div>
+                        ${item.melhor_preco ? `<div class="item-price">Melhor: R$ ${item.melhor_preco.toFixed(2)} - ${item.melhor_supermercado}</div>` : ''}
+                    </div>
+                    <button class="item-delete" onclick="removerItem(${item.id})">X</button>
+                </li>
+            `).join('');
+        }
+
+        async function adicionarItem() {
+            const input = document.getElementById('itemInput');
+            const nome = input.value.trim();
+
+            if (!nome || nome.length < 2) {
+                alert('Digite o nome do produto');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/listas/${listaId}/itens`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome_produto: nome, quantidade: 1 })
+                });
+
+                const data = await response.json();
+                if (data.sucesso) {
+                    input.value = '';
+                    await carregarItens();
+                }
+            } catch (error) {
+                console.error('Erro ao adicionar item:', error);
+            }
+        }
+
+        async function toggleComprado(itemId, comprado) {
+            try {
+                await fetch(`${API_URL}/api/listas/itens/${itemId}/comprado?comprado=${comprado}`, {
+                    method: 'PUT'
+                });
+                await carregarItens();
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        async function removerItem(itemId) {
+            try {
+                await fetch(`${API_URL}/api/listas/itens/${itemId}`, { method: 'DELETE' });
+                await carregarItens();
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        async function compararPrecos() {
+            const btnComparar = document.getElementById('btnComparar');
+            const resultado = document.getElementById('resultado');
+
+            btnComparar.disabled = true;
+            btnComparar.textContent = 'Comparando...';
+            resultado.innerHTML = '<div class="loading">Buscando melhores precos...</div>';
+
+            try {
+                let url = `${API_URL}/api/listas/${listaId}/comparar`;
+
+                // Adiciona localizacao se disponivel
+                if (navigator.geolocation) {
+                    try {
+                        const pos = await new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                        });
+                        url += `?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}`;
+                    } catch (e) {
+                        console.log('Localizacao nao disponivel');
+                    }
+                }
+
+                const response = await fetch(url, { method: 'POST' });
+                const data = await response.json();
+
+                exibirResultado(data);
+            } catch (error) {
+                console.error('Erro:', error);
+                resultado.innerHTML = '<div class="card">Erro ao comparar precos</div>';
+            } finally {
+                btnComparar.disabled = false;
+                btnComparar.textContent = 'Comparar Precos';
+            }
+        }
+
+        function exibirResultado(data) {
+            const resultado = document.getElementById('resultado');
+
+            if (!data.melhor_supermercado) {
+                resultado.innerHTML = '<div class="card">Nenhum preco encontrado para os itens da lista</div>';
+                return;
+            }
+
+            const melhor = data.melhor_supermercado;
+            const outros = data.supermercados.slice(1, 4);
+
+            resultado.innerHTML = `
+                <div class="resultado">
+                    <h3>Melhor Opcao</h3>
+                    <div class="melhor-mercado">
+                        <div class="nome">${melhor.nome.toUpperCase()}</div>
+                        <div class="total">R$ ${melhor.total.toFixed(2)}</div>
+                        ${melhor.distancia_km ? `<div>📍 ${melhor.distancia_km.toFixed(1)} km de distancia</div>` : ''}
+                        <div class="economia">Economia de R$ ${data.economia_potencial.toFixed(2)}</div>
+                    </div>
+
+                    ${outros.length > 0 ? `
+                        <div class="outros-mercados">
+                            <h4>Outras opcoes:</h4>
+                            ${outros.map(m => `
+                                <div class="mercado-item">
+                                    <span>${m.nome}</span>
+                                    <span>R$ ${m.total.toFixed(2)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

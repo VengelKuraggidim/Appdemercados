@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <title>Scanner de Codigo de Barras - Comparador de Precos</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-color);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 { font-size: 1.5rem; }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .mode-btn.active {
+            border-color: var(--primary-color);
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        #video {
+            width: 100%;
+            border-radius: 12px;
+            background: #000;
+        }
+
+        #canvas { display: none; }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 100px;
+            border: 3px solid var(--primary-color);
+            border-radius: 8px;
+            pointer-events: none;
+        }
+
+        .scanner-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary-color);
+            animation: scan 2s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+            background: #f0fff0;
+        }
+
+        .upload-area input { display: none; }
+        .upload-area span { font-size: 3rem; display: block; margin-bottom: 10px; }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-secondary { background: var(--secondary-color); color: white; }
+        .btn-stop { background: #f44336; color: white; }
+
+        .resultado {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .produto-encontrado {
+            text-align: center;
+        }
+
+        .produto-encontrado img {
+            max-width: 150px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .produto-encontrado h3 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .preco-lista {
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        .preco-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .ean-display {
+            background: #333;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 1.5rem;
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .hidden { display: none !important; }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Scanner de Codigo de Barras</h1>
+    </div>
+
+    <div class="container">
+        <a href="/" class="back-link">← Voltar</a>
+
+        <div class="card">
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="setMode('camera')" id="btnCamera">
+                    📷 Camera
+                </button>
+                <button class="mode-btn" onclick="setMode('upload')" id="btnUpload">
+                    📁 Upload
+                </button>
+            </div>
+
+            <!-- Modo Camera -->
+            <div id="cameraMode">
+                <div class="scanner-container">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                    <div class="scanner-overlay">
+                        <div class="scanner-line"></div>
+                    </div>
+                </div>
+                <p class="status" id="cameraStatus">Posicione o codigo de barras na area verde</p>
+                <button class="btn btn-primary" id="btnStart" onclick="startCamera()">
+                    Iniciar Camera
+                </button>
+                <button class="btn btn-stop hidden" id="btnStop" onclick="stopCamera()">
+                    Parar Camera
+                </button>
+            </div>
+
+            <!-- Modo Upload -->
+            <div id="uploadMode" class="hidden">
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                    <span>📷</span>
+                    <p>Clique ou arraste uma foto do codigo de barras</p>
+                    <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
+                </div>
+            </div>
+        </div>
+
+        <!-- Resultado -->
+        <div id="resultado" class="hidden"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let video, canvas, ctx;
+        let scanning = false;
+        let stream = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+        });
+
+        function setMode(mode) {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn${mode === 'camera' ? 'Camera' : 'Upload'}`).classList.add('active');
+
+            document.getElementById('cameraMode').classList.toggle('hidden', mode !== 'camera');
+            document.getElementById('uploadMode').classList.toggle('hidden', mode !== 'upload');
+
+            if (mode !== 'camera') {
+                stopCamera();
+            }
+        }
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+
+                video.srcObject = stream;
+                await video.play();
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                document.getElementById('btnStart').classList.add('hidden');
+                document.getElementById('btnStop').classList.remove('hidden');
+                document.getElementById('cameraStatus').textContent = 'Escaneando...';
+
+                scanning = true;
+                scanFrame();
+            } catch (error) {
+                console.error('Erro ao acessar camera:', error);
+                alert('Nao foi possivel acessar a camera. Verifique as permissoes.');
+            }
+        }
+
+        function stopCamera() {
+            scanning = false;
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            video.srcObject = null;
+
+            document.getElementById('btnStart').classList.remove('hidden');
+            document.getElementById('btnStop').classList.add('hidden');
+            document.getElementById('cameraStatus').textContent = 'Camera parada';
+        }
+
+        function scanFrame() {
+            if (!scanning) return;
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: 'dontInvert'
+                });
+
+                if (code) {
+                    console.log('Codigo encontrado:', code.data);
+                    handleBarcodeFound(code.data);
+                    return;
+                }
+            }
+
+            requestAnimationFrame(scanFrame);
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Tenta extrair localmente primeiro
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const img = new Image();
+                img.onload = async () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                    if (code) {
+                        handleBarcodeFound(code.data);
+                    } else {
+                        // Envia para API se nao encontrar localmente
+                        await sendImageToAPI(file);
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function sendImageToAPI(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_URL}/api/escanear-codigo-barras`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.sucesso && data.ean) {
+                    handleBarcodeFound(data.ean);
+                } else {
+                    showError('Codigo de barras nao encontrado na imagem');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                showError('Erro ao processar imagem');
+            }
+        }
+
+        async function handleBarcodeFound(ean) {
+            stopCamera();
+
+            const resultado = document.getElementById('resultado');
+            resultado.classList.remove('hidden');
+            resultado.innerHTML = `
+                <div class="ean-display">${ean}</div>
+                <p class="status">Buscando produto...</p>
+            `;
+
+            try {
+                const formData = new FormData();
+                formData.append('ean', ean);
+
+                const response = await fetch(`${API_URL}/api/buscar-ean`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.sucesso) {
+                    showProductResult(data, ean);
+                } else {
+                    showNotFound(ean, data.erro);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                showError('Erro ao buscar produto');
+            }
+        }
+
+        function showProductResult(data, ean) {
+            const resultado = document.getElementById('resultado');
+            const produto = data.produto;
+
+            resultado.innerHTML = `
+                <div class="produto-encontrado">
+                    <div class="ean-display">${ean}</div>
+                    ${produto.imagem_url ? `<img src="${produto.imagem_url}" alt="${produto.nome}">` : ''}
+                    <h3>${produto.nome}</h3>
+                    ${produto.marca ? `<p>Marca: ${produto.marca}</p>` : ''}
+                    <p style="color: #666;">Fonte: ${data.fonte}</p>
+
+                    ${data.precos && data.precos.length > 0 ? `
+                        <div class="preco-lista">
+                            <h4>Precos encontrados:</h4>
+                            ${data.precos.map(p => `
+                                <div class="preco-item">
+                                    <span>${p.supermercado}</span>
+                                    <strong>R$ ${p.preco.toFixed(2)}</strong>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p style="margin-top: 15px; color: #666;">Nenhum preco encontrado. Seja o primeiro a adicionar!</p>'}
+
+                    <button class="btn btn-primary" onclick="adicionarPreco('${ean}', '${produto.nome}')">
+                        Adicionar Preco
+                    </button>
+                    <button class="btn btn-secondary" onclick="scanNovamente()">
+                        Escanear Outro
+                    </button>
+                </div>
+            `;
+        }
+
+        function showNotFound(ean, erro) {
+            const resultado = document.getElementById('resultado');
+
+            resultado.innerHTML = `
+                <div class="produto-encontrado">
+                    <div class="ean-display">${ean}</div>
+                    <span style="font-size: 3rem;">❓</span>
+                    <h3>Produto nao encontrado</h3>
+                    <p style="color: #666;">${erro || 'Este produto ainda nao esta cadastrado'}</p>
+
+                    <button class="btn btn-primary" onclick="cadastrarProduto('${ean}')">
+                        Cadastrar Produto
+                    </button>
+                    <button class="btn btn-secondary" onclick="scanNovamente()">
+                        Escanear Outro
+                    </button>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const resultado = document.getElementById('resultado');
+            resultado.classList.remove('hidden');
+            resultado.innerHTML = `
+                <div class="produto-encontrado">
+                    <span style="font-size: 3rem;">⚠️</span>
+                    <h3>${message}</h3>
+                    <button class="btn btn-secondary" onclick="scanNovamente()">
+                        Tentar Novamente
+                    </button>
+                </div>
+            `;
+        }
+
+        function scanNovamente() {
+            document.getElementById('resultado').classList.add('hidden');
+            document.getElementById('fileInput').value = '';
+        }
+
+        function adicionarPreco(ean, nome) {
+            // Redireciona para pagina de contribuicao com os dados
+            localStorage.setItem('produto_ean', ean);
+            localStorage.setItem('produto_nome', nome);
+            window.location.href = '/contribuir.html';
+        }
+
+        function cadastrarProduto(ean) {
+            localStorage.setItem('produto_ean', ean);
+            window.location.href = '/contribuir.html';
+        }
+    </script>
+</body>
+</html>
