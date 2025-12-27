@@ -1,0 +1,26 @@
+{
+  "name": "Comparador de Preços",
+  "short_name": "CompraPreços",
+  "description": "Compare preços de produtos em diferentes supermercados",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4CAF50",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "utilities"],
+  "lang": "pt-BR"
+}

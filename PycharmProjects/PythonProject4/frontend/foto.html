@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <title>📸 Adicionar por Foto - Comparador de Preços</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        header {
+            background: #4CAF50;
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            text-align: center;
+            font-size: 22px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .camera-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .camera-preview {
+            width: 100%;
+            max-height: 400px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            display: none;
+        }
+
+        .camera-preview.show {
+            display: block;
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .preview-image.show {
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+        }
+
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #1976D2;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #4CAF50;
+            background: #f9f9f9;
+        }
+
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .result-box {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .result-box.show {
+            display: block;
+        }
+
+        .result-item {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #666;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .price-big {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #ddd;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .location-info {
+            background: #fff3cd;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📸 Adicionar Preço por Foto</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <a href="/contribuir.html" class="back-link">← Voltar</a>
+
+        <div class="info-box">
+            <strong>💡 Como funciona:</strong><br>
+            1. Tire uma foto do preço do produto na prateleira<br>
+            2. O sistema vai reconhecer automaticamente o preço<br>
+            3. Confirme os dados e envie!<br>
+            <br>
+            <strong>Dica:</strong> Foto nítida e com boa iluminação = melhor resultado!
+        </div>
+
+        <div style="background: #E8F5E9; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #2E7D32;">
+            💾 <strong>Dados salvos permanentemente</strong> - Suas contribuições ficam guardadas no banco de dados, mesmo se você limpar o cache do navegador
+        </div>
+
+        <div class="location-info" id="locationInfo" style="display: none;">
+            📍 <span id="locationText">Obtendo localização...</span>
+        </div>
+
+        <div class="camera-container">
+            <h3 style="margin-bottom: 15px;">Escolha uma opção:</h3>
+
+            <!-- Upload Area -->
+            <div class="upload-area" id="uploadArea">
+                <div style="font-size: 48px; margin-bottom: 10px;">📷</div>
+                <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">
+                    Clique para tirar foto ou escolher arquivo
+                </div>
+                <div style="font-size: 14px; color: #666;">
+                    Aceita: JPG, PNG (max 10MB)
+                </div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" capture="environment">
+
+            <!-- Camera Preview -->
+            <div class="camera-preview" id="cameraPreview">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <!-- Image Preview -->
+            <img id="imagePreview" class="preview-image">
+
+            <!-- Buttons -->
+            <div class="button-group" id="buttonGroup" style="display: none;">
+                <button class="btn-primary" id="captureBtn" style="display: none;">
+                    📸 Capturar
+                </button>
+                <button class="btn-secondary" id="analyzeBtn" style="display: none;">
+                    🔍 Analisar Foto
+                </button>
+                <button class="btn-danger" id="retakeBtn" style="display: none;">
+                    🔄 Nova Foto
+                </button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analisando foto com IA...</p>
+        </div>
+
+        <div class="result-box" id="resultBox">
+            <h3 style="margin-bottom: 20px;">✨ Dados Extraídos</h3>
+
+            <div class="result-item">
+                <span class="result-label">💰 Preço:</span>
+                <span class="price-big" id="extractedPrice">-</span>
+            </div>
+
+            <div class="result-item" id="productBox" style="display: none;">
+                <span class="result-label">📦 Produto:</span>
+                <span class="result-value" id="extractedProduct">-</span>
+            </div>
+
+            <div class="result-item" id="brandBox" style="display: none;">
+                <span class="result-label">🏷️ Marca:</span>
+                <span class="result-value" id="extractedBrand">-</span>
+            </div>
+
+            <div class="form-group">
+                <label for="supermercadoInput">Supermercado:</label>
+                <input type="text" id="supermercadoInput" placeholder="Ex: Carrefour" required>
+            </div>
+
+            <div class="form-group">
+                <label for="observacaoInput">Observações (opcional):</label>
+                <input type="text" id="observacaoInput" placeholder="Ex: Promoção válida até...">
+            </div>
+
+            <button class="btn-primary" id="submitBtn" style="width: 100%; margin-top: 20px;">
+                ✅ Confirmar e Enviar
+            </button>
+        </div>
+
+        <div class="success-message" id="successMessage">
+            ✅ Contribuição enviada com sucesso! Obrigado!
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+    </div>
+
+    <script src="/src/foto.js"></script>
+</body>
+</html>

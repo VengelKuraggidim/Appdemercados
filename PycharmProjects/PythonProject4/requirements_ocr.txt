@@ -1,0 +1,8 @@
+# OCR e processamento de imagens
+pytesseract==0.3.10
+Pillow==10.1.0
+opencv-python==4.8.1.78
+python-multipart==0.0.6
+
+# Para melhor extração de texto
+easyocr==1.7.1  # Alternativa ao Tesseract, mais preciso
