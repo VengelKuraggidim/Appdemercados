@@ -25,11 +25,11 @@ class ScraperManager:
                 'carrefour': CarrefourScraper(),
                 'pao_acucar': PaoAcucarScraper(),
                 'extra': ExtraScraper(),
-                """'mercado_livre': MercadoLivreScraper(),
-                'atacadao': AtacadaoScraper(),
-                'assai': AssaiScraper(),
-                'dia': DiaScraper(),
-            }"""
+                #'mercado_livre': MercadoLivreScraper(),
+                # 'atacadao': AtacadaoScraper(),
+                # 'assai': AssaiScraper(),
+                # 'dia': DiaScraper(),
+            }
 
     def search_all(self, termo: str, supermercados: Optional[List[str]] = None) -> List[Dict]:
         """

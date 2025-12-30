@@ -56,8 +56,8 @@ class OCRHibrido:
             elif modo_forcado == "claude":
                 return self._processar_com_claude(imagem_bytes)
 
-        # NÍVEL 1: Tentar EasyOCR (sempre primeiro, grátis)
-        print("🔍 Tentando EasyOCR (grátis)...")
+        # NIVEL 1: Tentar EasyOCR (sempre primeiro, gratis)
+        print("[SCAN] Tentando EasyOCR (gratis)...")
         resultado_easy = self._processar_com_easyocr(imagem_bytes)
 
         if resultado_easy['sucesso']:
@@ -66,7 +66,7 @@ class OCRHibrido:
 
             # Se resultado bom, retornar
             if confianca >= self.confianca_minima_easyocr and len(produtos) >= self.produtos_minimos:
-                print(f"✅ EasyOCR foi suficiente! Confiança: {confianca}%")
+                print(f"[OK] EasyOCR foi suficiente! Confiança: {confianca}%")
                 resultado_easy['metadados']['decisao'] = {
                     'engine_escolhida': 'EasyOCR',
                     'motivo': 'Confiança suficiente',
@@ -75,11 +75,11 @@ class OCRHibrido:
                 }
                 return resultado_easy
 
-            print(f"⚠️  EasyOCR com baixa confiança ({confianca}%) ou poucos produtos ({len(produtos)})")
+            print(f"[AVISO]  EasyOCR com baixa confiança ({confianca}%) ou poucos produtos ({len(produtos)})")
 
         # Se usuário prefere só grátis e não tem créditos, retornar EasyOCR mesmo com baixa confiança
         if usuario_prefere_gratis and not usuario_tem_creditos_api:
-            print("ℹ️  Retornando EasyOCR (usuário prefere grátis)")
+            print("[INFO]  Retornando EasyOCR (usuário prefere grátis)")
             resultado_easy['metadados']['decisao'] = {
                 'engine_escolhida': 'EasyOCR',
                 'motivo': 'Usuário prefere gratuito',
@@ -90,14 +90,14 @@ class OCRHibrido:
 
         # NÍVEL 2: Tentar Google Vision (se disponível)
         if self._google_vision_disponivel():
-            print("🔍 Tentando Google Vision...")
+            print("[SCAN] Tentando Google Vision...")
             resultado_google = self._processar_com_google(imagem_bytes)
 
             if resultado_google['sucesso']:
                 produtos = resultado_google.get('produtos', [])
 
                 if len(produtos) >= self.produtos_minimos:
-                    print(f"✅ Google Vision encontrou {len(produtos)} produtos!")
+                    print(f"[OK] Google Vision encontrou {len(produtos)} produtos!")
                     resultado_google['metadados']['decisao'] = {
                         'engine_escolhida': 'Google Vision',
                         'motivo': 'EasyOCR insuficiente, Google melhorou',
@@ -107,11 +107,11 @@ class OCRHibrido:
 
         # NÍVEL 3: Claude Vision (último recurso, mais caro mas mais preciso)
         if self._claude_vision_disponivel() and usuario_tem_creditos_api:
-            print("🔍 Tentando Claude Vision (premium)...")
+            print("[SCAN] Tentando Claude Vision (premium)...")
             resultado_claude = self._processar_com_claude(imagem_bytes)
 
             if resultado_claude['sucesso']:
-                print(f"✅ Claude Vision processou com sucesso!")
+                print(f"[OK] Claude Vision processou com sucesso!")
                 resultado_claude['metadados']['decisao'] = {
                     'engine_escolhida': 'Claude Vision',
                     'motivo': 'Engines anteriores falharam, usando premium',
@@ -120,7 +120,7 @@ class OCRHibrido:
                 return resultado_claude
 
         # Se chegou aqui, retornar melhor resultado que conseguimos
-        print("⚠️  Retornando melhor resultado disponível (EasyOCR)")
+        print("[AVISO]  Retornando melhor resultado disponível (EasyOCR)")
         resultado_easy['metadados']['decisao'] = {
             'engine_escolhida': 'EasyOCR (fallback)',
             'motivo': 'Outros engines indisponíveis',
@@ -129,7 +129,8 @@ class OCRHibrido:
         return resultado_easy
 
     def _processar_com_easyocr(self, imagem_bytes: bytes) -> Dict:
-        """Processa com EasyOCR"""
+        """Processa com EasyOCR ou Tesseract como fallback"""
+        # Tentar EasyOCR primeiro
         try:
             from app.utils.easyocr_processor import get_easyocr_processor
 
@@ -140,15 +141,57 @@ class OCRHibrido:
             if resultado['sucesso'] and resultado.get('produtos'):
                 confianca_produtos = ocr.calcular_confianca_produtos(resultado['produtos'])
                 resultado['confianca'] = confianca_produtos
+                resultado['metadados'] = resultado.get('metadados', {})
+                resultado['metadados']['engine'] = 'EasyOCR'
 
             return resultado
+
+        except ImportError:
+            print("[AVISO]  EasyOCR não disponível, usando Tesseract...")
+            return self._processar_com_tesseract(imagem_bytes)
+        except Exception as e:
+            print(f"[AVISO]  EasyOCR falhou ({e}), tentando Tesseract...")
+            return self._processar_com_tesseract(imagem_bytes)
+
+    def _processar_com_tesseract(self, imagem_bytes: bytes) -> Dict:
+        """Processa com Tesseract OCR melhorado"""
+        try:
+            from app.utils.ocr_nota_fiscal import get_ocr_nota_fiscal
+
+            ocr = get_ocr_nota_fiscal()
+            resultado = ocr.processar_nota_fiscal(imagem_bytes)
+
+            if resultado.get('sucesso'):
+                # Adaptar formato para o sistema híbrido
+                return {
+                    'sucesso': True,
+                    'produtos': resultado.get('produtos', []),
+                    'total': resultado.get('total_nota'),
+                    'supermercado': resultado.get('supermercado'),
+                    'data_compra': resultado.get('data_compra'),
+                    'confianca': resultado.get('confianca', 50),
+                    'metadados': {
+                        'engine': 'Tesseract',
+                        'total_produtos': resultado.get('total_produtos', 0),
+                        'verificado': resultado.get('verificado', False)
+                    }
+                }
+            else:
+                return {
+                    'sucesso': False,
+                    'erro': resultado.get('erro', 'Erro no processamento'),
+                    'produtos': [],
+                    'confianca': 0,
+                    'metadados': {'engine': 'Tesseract'}
+                }
 
         except Exception as e:
             return {
                 'sucesso': False,
-                'erro': f'EasyOCR falhou: {str(e)}',
+                'erro': f'Tesseract falhou: {str(e)}',
                 'produtos': [],
-                'confianca': 0
+                'confianca': 0,
+                'metadados': {'engine': 'Tesseract'}
             }
 
     def _processar_com_google(self, imagem_bytes: bytes) -> Dict:

@@ -101,75 +101,226 @@ class NotaFiscalOCR:
         self.produtos_comuns_upper = [p.upper() for p in self.produtos_comuns]
 
     def extrair_texto(self, imagem_bytes: bytes) -> str:
-        """Extrai texto da imagem da nota fiscal - SUPER OTIMIZADO para fotos do WhatsApp"""
+        """
+        Extrai texto da imagem da nota fiscal - OTIMIZADO para fotos de celular
+
+        Estratégia multi-tentativa:
+        1. Tenta múltiplos pré-processamentos
+        2. Escolhe o resultado com mais texto útil
+        3. Corrige rotação automática
+        """
         try:
-            imagem = Image.open(io.BytesIO(imagem_bytes))
+            imagem_original = Image.open(io.BytesIO(imagem_bytes))
+            print(f"Imagem original: {imagem_original.width}x{imagem_original.height}, modo: {imagem_original.mode}")
 
-            print(f"Imagem original: {imagem.width}x{imagem.height}, modo: {imagem.mode}")
+            # Converter para RGB se necessário
+            if imagem_original.mode != 'RGB':
+                imagem_original = imagem_original.convert('RGB')
 
-            # ESTRATÉGIA PARA FOTOS DO WHATSAPP (comprimidas, baixa qualidade):
-            # 1. Manter tamanho razoável (não muito pequeno)
-            # 2. Aplicar pré-processamento MODERADO
-            # 3. NÃO exagerar no processamento (pode piorar)
+            # Corrigir orientação EXIF (fotos de celular podem estar rotacionadas)
+            imagem_original = ImageOps.exif_transpose(imagem_original)
 
-            # Tamanho ideal: 1200px (bom balanço)
-            target_dimension = 1200
+            # Redimensionar para tamanho ideal (2000px para mais detalhes)
+            imagem_base = self._redimensionar_para_ocr(imagem_original, 2000)
 
-            # Calcular novo tamanho mantendo proporção
-            if imagem.width > imagem.height:
-                if imagem.width > target_dimension:
-                    ratio = target_dimension / imagem.width
-                    new_width = target_dimension
-                    new_height = int(imagem.height * ratio)
-                else:
-                    new_width, new_height = imagem.width, imagem.height
-            else:
-                if imagem.height > target_dimension:
-                    ratio = target_dimension / imagem.height
-                    new_height = target_dimension
-                    new_width = int(imagem.width * ratio)
-                else:
-                    new_width, new_height = imagem.width, imagem.height
+            # Lista de pré-processamentos para tentar
+            preprocessamentos = [
+                ('padrao', lambda img: self._preprocessar_padrao(img)),
+                ('alto_contraste', lambda img: self._preprocessar_alto_contraste(img)),
+                ('binarizado', lambda img: self._preprocessar_binarizado(img)),
+                ('adaptativo', lambda img: self._preprocessar_adaptativo(img)),
+                ('nitidez_extrema', lambda img: self._preprocessar_nitidez_extrema(img)),
+            ]
 
-            # Redimensionar se necessário
-            if (new_width, new_height) != (imagem.width, imagem.height):
-                # LANCZOS = melhor qualidade para redução
-                imagem = imagem.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                print(f"Redimensionada para: {new_width}x{new_height}")
+            melhor_texto = ""
+            melhor_score = 0
+            melhor_metodo = ""
 
-            # PRÉ-PROCESSAMENTO SIMPLES (menos processamento = melhor resultado)
+            for nome, preprocessar in preprocessamentos:
+                try:
+                    img_processada = preprocessar(imagem_base.copy())
 
-            # 1. Converter para RGB se necessário
-            if imagem.mode != 'RGB':
-                imagem = imagem.convert('RGB')
+                    # Tentar múltiplas configurações do Tesseract
+                    configs = [
+                        r'--oem 3 --psm 6 -l por',   # Bloco uniforme
+                        r'--oem 3 --psm 4 -l por',   # Coluna única de texto
+                        r'--oem 3 --psm 3 -l por',   # Automático
+                    ]
 
-            # 2. Aumentar contraste moderadamente
-            enhancer = ImageEnhance.Contrast(imagem)
-            imagem = enhancer.enhance(2.0)
+                    for config in configs:
+                        try:
+                            texto = pytesseract.image_to_string(img_processada, config=config, timeout=60)
+                            score = self._calcular_score_texto(texto)
 
-            # 3. Aumentar nitidez moderadamente
-            enhancer = ImageEnhance.Sharpness(imagem)
-            imagem = enhancer.enhance(2.0)
+                            if score > melhor_score:
+                                melhor_score = score
+                                melhor_texto = texto
+                                melhor_metodo = f"{nome} ({config.split('--psm ')[1][:1]})"
+                                print(f"  [{nome}] Score: {score} (melhor até agora)")
+                        except Exception:
+                            continue
 
-            # 4. Converter para escala de cinza
-            imagem = imagem.convert('L')
+                except Exception as e:
+                    print(f"  [{nome}] Erro: {e}")
+                    continue
 
-            print(f"Pré-processamento completo. Iniciando OCR...")
+            # Se ainda não encontrou texto bom, tentar com rotações
+            if melhor_score < 100:
+                print("Score baixo, tentando rotações...")
+                for angulo in [90, 180, 270]:
+                    try:
+                        img_rotacionada = imagem_base.rotate(angulo, expand=True)
+                        img_processada = self._preprocessar_padrao(img_rotacionada)
+                        texto = pytesseract.image_to_string(img_processada, config=r'--oem 3 --psm 6 -l por', timeout=60)
+                        score = self._calcular_score_texto(texto)
 
-            # Configuração do Tesseract
-            # PSM 6 = bloco uniforme de texto
-            # OEM 3 = LSTM + Legacy (melhor para textos mistos)
-            custom_config = r'--oem 3 --psm 6 -l por'
+                        if score > melhor_score:
+                            melhor_score = score
+                            melhor_texto = texto
+                            melhor_metodo = f"rotacao_{angulo}"
+                            print(f"  [rotacao {angulo}°] Score: {score} (melhor!)")
+                    except:
+                        continue
 
-            # TIMEOUT: 120 segundos
-            texto = pytesseract.image_to_string(imagem, config=custom_config, timeout=120)
-
-            print(f"OCR concluído. {len(texto)} caracteres extraídos")
-
-            return texto
+            print(f"OCR concluído. Melhor método: {melhor_metodo}, Score: {melhor_score}, {len(melhor_texto)} caracteres")
+            return melhor_texto
 
         except Exception as e:
             raise Exception(f"Erro ao processar imagem: {str(e)}")
+
+    def _redimensionar_para_ocr(self, imagem, target_dimension):
+        """Redimensiona mantendo proporção para o tamanho ideal de OCR"""
+        if imagem.width > imagem.height:
+            if imagem.width > target_dimension:
+                ratio = target_dimension / imagem.width
+                new_width = target_dimension
+                new_height = int(imagem.height * ratio)
+            else:
+                return imagem
+        else:
+            if imagem.height > target_dimension:
+                ratio = target_dimension / imagem.height
+                new_height = target_dimension
+                new_width = int(imagem.width * ratio)
+            else:
+                return imagem
+
+        return imagem.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    def _preprocessar_padrao(self, imagem):
+        """Pré-processamento padrão balanceado"""
+        # Aumentar contraste
+        enhancer = ImageEnhance.Contrast(imagem)
+        imagem = enhancer.enhance(1.8)
+
+        # Aumentar nitidez
+        enhancer = ImageEnhance.Sharpness(imagem)
+        imagem = enhancer.enhance(1.5)
+
+        # Converter para escala de cinza
+        return imagem.convert('L')
+
+    def _preprocessar_alto_contraste(self, imagem):
+        """Pré-processamento com alto contraste para fotos escuras"""
+        # Aumentar brilho primeiro
+        enhancer = ImageEnhance.Brightness(imagem)
+        imagem = enhancer.enhance(1.3)
+
+        # Alto contraste
+        enhancer = ImageEnhance.Contrast(imagem)
+        imagem = enhancer.enhance(2.5)
+
+        # Nitidez
+        enhancer = ImageEnhance.Sharpness(imagem)
+        imagem = enhancer.enhance(2.0)
+
+        return imagem.convert('L')
+
+    def _preprocessar_binarizado(self, imagem):
+        """Binarização para máximo contraste (preto e branco puro)"""
+        # Converter para escala de cinza
+        gray = imagem.convert('L')
+
+        # Aumentar contraste antes de binarizar
+        enhancer = ImageEnhance.Contrast(gray)
+        gray = enhancer.enhance(2.0)
+
+        # Binarizar com threshold adaptativo manual
+        # Usa o valor médio como threshold
+        pixels = list(gray.getdata())
+        threshold = sum(pixels) // len(pixels)
+
+        return gray.point(lambda x: 255 if x > threshold else 0)
+
+    def _preprocessar_adaptativo(self, imagem):
+        """Pré-processamento adaptativo usando numpy para threshold local"""
+        try:
+            # Converter para array numpy
+            gray = imagem.convert('L')
+            img_array = np.array(gray)
+
+            # Calcular threshold adaptativo (média local)
+            from scipy.ndimage import uniform_filter
+            local_mean = uniform_filter(img_array.astype(float), size=15)
+            binary = (img_array > local_mean - 10).astype(np.uint8) * 255
+
+            return Image.fromarray(binary)
+        except ImportError:
+            # Se scipy não estiver disponível, usar método simples
+            return self._preprocessar_binarizado(imagem)
+
+    def _preprocessar_nitidez_extrema(self, imagem):
+        """Nitidez extrema para fotos borradas/tremidas"""
+        # Aplicar filtro de nitidez múltiplas vezes
+        for _ in range(3):
+            imagem = imagem.filter(ImageFilter.SHARPEN)
+
+        # Aumentar contraste
+        enhancer = ImageEnhance.Contrast(imagem)
+        imagem = enhancer.enhance(2.0)
+
+        return imagem.convert('L')
+
+    def _calcular_score_texto(self, texto):
+        """
+        Calcula um score de qualidade do texto extraído
+        Baseado em indicadores de notas fiscais válidas
+        """
+        if not texto:
+            return 0
+
+        score = 0
+        texto_upper = texto.upper()
+
+        # Pontos por comprimento (texto mais longo geralmente é melhor)
+        score += min(len(texto) // 50, 30)
+
+        # Pontos por palavras-chave de nota fiscal
+        keywords = ['TOTAL', 'PRECO', 'VALOR', 'PRODUTO', 'QTD', 'QUANTIDADE',
+                   'CUPOM', 'FISCAL', 'CNPJ', 'DATA', 'CAIXA', 'ITEM']
+        for kw in keywords:
+            if kw in texto_upper:
+                score += 10
+
+        # Pontos por supermercados conhecidos
+        for supermercado in self.SUPERMERCADOS.keys():
+            if supermercado in texto_upper:
+                score += 20
+                break
+
+        # Pontos por padrões de preço (R$ XX,XX ou XX,XX)
+        precos = re.findall(r'\d+[.,]\d{2}', texto)
+        score += min(len(precos) * 5, 40)
+
+        # Pontos por linhas que parecem produtos (texto + preço)
+        linhas_produto = re.findall(r'[A-Z]{3,}.+\d+[.,]\d{2}', texto_upper)
+        score += min(len(linhas_produto) * 8, 50)
+
+        # Penalidade por muito ruído (caracteres especiais demais)
+        ruido = len(re.findall(r'[^\w\s.,\-/()]', texto))
+        score -= min(ruido // 10, 20)
+
+        return max(score, 0)
 
     def identificar_supermercado(self, texto: str) -> Optional[str]:
         """Identifica o supermercado pela nota fiscal"""

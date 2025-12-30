@@ -130,32 +130,78 @@ class EANService:
     def extrair_ean_de_imagem(self, image_data: bytes) -> Optional[str]:
         """
         Extrai codigo de barras de uma imagem usando pyzbar.
+        Aplica múltiplas técnicas de pré-processamento para melhorar detecção
+        em fotos de celular com qualidade variável.
         Retorna o EAN encontrado ou None.
         """
         try:
             from pyzbar import pyzbar
-            from PIL import Image
+            from PIL import Image, ImageEnhance, ImageFilter, ImageOps
             import io
 
             image = Image.open(io.BytesIO(image_data))
-            barcodes = pyzbar.decode(image)
 
-            if not barcodes:
-                return None
+            # Converte para RGB se necessário
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
 
-            # Retorna o primeiro codigo de barras encontrado
-            for barcode in barcodes:
-                if barcode.type in ['EAN13', 'EAN8', 'UPCA', 'UPCE', 'CODE128']:
-                    return barcode.data.decode('utf-8')
+            # Lista de técnicas de pré-processamento para tentar
+            processamentos = [
+                lambda img: img,  # Original
+                lambda img: ImageOps.grayscale(img),  # Escala de cinza
+                lambda img: self._aumentar_contraste(img, 1.5),  # Alto contraste
+                lambda img: self._aumentar_contraste(img, 2.0),  # Muito alto contraste
+                lambda img: self._binarizar(img),  # Preto e branco puro
+                lambda img: img.filter(ImageFilter.SHARPEN),  # Nitidez
+                lambda img: self._aumentar_contraste(ImageOps.grayscale(img), 1.5),  # Cinza + contraste
+                lambda img: self._redimensionar(img, 2.0),  # Ampliar 2x
+                lambda img: self._redimensionar(img, 0.5),  # Reduzir (para imagens muito grandes)
+                lambda img: img.rotate(90, expand=True),  # Rotação 90°
+                lambda img: img.rotate(180, expand=True),  # Rotação 180°
+                lambda img: img.rotate(270, expand=True),  # Rotação 270°
+            ]
 
+            tipos_validos = ['EAN13', 'EAN8', 'UPCA', 'UPCE', 'CODE128', 'CODE39', 'I25']
+
+            for i, processar in enumerate(processamentos):
+                try:
+                    img_processada = processar(image.copy())
+                    barcodes = pyzbar.decode(img_processada)
+
+                    for barcode in barcodes:
+                        if barcode.type in tipos_validos:
+                            ean = barcode.data.decode('utf-8')
+                            print(f"EAN encontrado na tentativa {i+1}: {ean} (tipo: {barcode.type})")
+                            return ean
+                except Exception as e:
+                    continue
+
+            print("Nenhum codigo de barras encontrado apos todas as tentativas")
             return None
 
-        except ImportError:
-            print("pyzbar nao instalado. Execute: pip install pyzbar")
+        except ImportError as e:
+            print(f"Biblioteca nao instalada: {e}. Execute: pip install pyzbar pillow")
             return None
         except Exception as e:
             print(f"Erro ao extrair EAN da imagem: {e}")
             return None
+
+    def _aumentar_contraste(self, image, fator: float):
+        """Aumenta o contraste da imagem"""
+        from PIL import ImageEnhance
+        enhancer = ImageEnhance.Contrast(image)
+        return enhancer.enhance(fator)
+
+    def _binarizar(self, image, limiar: int = 128):
+        """Converte imagem para preto e branco puro (binarização)"""
+        from PIL import ImageOps
+        gray = ImageOps.grayscale(image)
+        return gray.point(lambda x: 255 if x > limiar else 0)
+
+    def _redimensionar(self, image, fator: float):
+        """Redimensiona a imagem pelo fator especificado"""
+        novo_tamanho = (int(image.width * fator), int(image.height * fator))
+        return image.resize(novo_tamanho, Image.LANCZOS)
 
 
 # Instancia global
