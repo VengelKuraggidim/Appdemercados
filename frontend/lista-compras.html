@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#10b981">
+    <title>Lista de Compras - Comparador de Precos</title>
+    <link rel="stylesheet" href="/css/neomorphic.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .page-header h1 {
+            color: var(--text-primary);
+            font-size: 22px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 15px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .card h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 14px 16px;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 16px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-neo-in);
+        }
+
+        .input-group input:focus {
+            outline: none;
+            box-shadow: var(--shadow-neo-in), 0 0 0 2px var(--primary);
+        }
+
+        .input-group input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .input-group button {
+            padding: 14px 20px;
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: var(--shadow-neo-out);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-group button:hover {
+            transform: translateY(-2px);
+        }
+
+        .input-group button:active {
+            transform: translateY(0);
+            box-shadow: var(--shadow-neo-in);
+        }
+
+        .item-list {
+            list-style: none;
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: var(--bg-primary);
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 10px;
+            gap: 12px;
+            box-shadow: var(--shadow-neo-in);
+            transition: all 0.3s;
+        }
+
+        .item:last-child { margin-bottom: 0; }
+
+        .item.comprado {
+            opacity: 0.5;
+        }
+
+        .item.comprado .item-name {
+            text-decoration: line-through;
+        }
+
+        .item input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .item-info { flex: 1; }
+        .item-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        .item-price {
+            font-size: 13px;
+            color: var(--primary);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .item-delete {
+            background: var(--danger);
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .item-delete:hover {
+            transform: scale(1.1);
+        }
+
+        .item-delete .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .btn-compare {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: var(--shadow-neo-out);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-compare:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-compare:active {
+            transform: translateY(0);
+            box-shadow: var(--shadow-neo-in);
+        }
+
+        .btn-compare:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .resultado {
+            background: var(--primary-gradient);
+            color: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .resultado h3 {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .melhor-mercado {
+            background: rgba(255,255,255,0.15);
+            border-radius: var(--border-radius-sm);
+            padding: 15px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        .melhor-mercado .nome {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .melhor-mercado .total {
+            font-size: 28px;
+            margin-top: 8px;
+            font-weight: 700;
+        }
+        .melhor-mercado .distancia {
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0.9;
+        }
+        .melhor-mercado .economia {
+            color: #a7f3d0;
+            margin-top: 8px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .outros-mercados { margin-top: 15px; }
+        .outros-mercados h4 {
+            margin-bottom: 10px;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .mercado-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 8px;
+        }
+
+        .mercado-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state .material-symbols-outlined {
+            font-size: 64px;
+            display: block;
+            margin-bottom: 15px;
+            color: var(--text-muted);
+        }
+
+        .empty-state p {
+            margin-top: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+        }
+
+        .loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--bg-secondary);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Voltar
+        </a>
+
+        <div class="page-header">
+            <h1>
+                <span class="material-symbols-outlined">checklist</span>
+                Lista de Compras
+            </h1>
+            <p>Compare precos e economize nas suas compras!</p>
+        </div>
+
+        <div class="card">
+            <h2>
+                <span class="material-symbols-outlined">add_circle</span>
+                Adicionar Item
+            </h2>
+            <div class="input-group">
+                <input type="text" id="itemInput" placeholder="Nome do produto (ex: Arroz 5kg)">
+                <button onclick="adicionarItem()">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>
+                <span class="material-symbols-outlined">shopping_cart</span>
+                Minha Lista
+            </h2>
+            <ul class="item-list" id="listaItens">
+                <li class="empty-state">
+                    <span class="material-symbols-outlined">shopping_cart</span>
+                    <p><strong>Sua lista esta vazia</strong></p>
+                    <p>Adicione produtos acima!</p>
+                </li>
+            </ul>
+
+            <button class="btn-compare" id="btnComparar" onclick="compararPrecos()" disabled>
+                <span class="material-symbols-outlined">compare_arrows</span>
+                Comparar Precos
+            </button>
+        </div>
+
+        <div id="resultado"></div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a class="nav-item" href="/">
+            <span class="material-symbols-outlined nav-item-icon">home</span>
+            <span class="nav-item-label">Inicio</span>
+        </a>
+        <a class="nav-item" href="/scanner.html">
+            <span class="material-symbols-outlined nav-item-icon">qr_code_scanner</span>
+            <span class="nav-item-label">Scanner</span>
+        </a>
+        <div class="fab-container">
+            <a class="fab" href="/contribuir.html">
+                <span class="material-symbols-outlined">add</span>
+            </a>
+        </div>
+        <a class="nav-item active" href="/lista-compras.html">
+            <span class="material-symbols-outlined nav-item-icon">checklist</span>
+            <span class="nav-item-label">Lista</span>
+        </a>
+        <a class="nav-item" href="/">
+            <span class="material-symbols-outlined nav-item-icon">person</span>
+            <span class="nav-item-label">Perfil</span>
+        </a>
+    </nav>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let listaId = null;
+        let itens = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize theme
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+
+            const usuario = localStorage.getItem('usuario_nome');
+            if (!usuario) {
+                alert('Por favor, faca login primeiro!');
+                window.location.href = '/';
+                return;
+            }
+
+            carregarOuCriarLista();
+
+            document.getElementById('itemInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') adicionarItem();
+            });
+        });
+
+        async function carregarOuCriarLista() {
+            const usuario = localStorage.getItem('usuario_nome');
+
+            try {
+                const response = await fetch(`${API_URL}/api/listas/usuario/${usuario}`);
+                const data = await response.json();
+
+                if (data.listas && data.listas.length > 0) {
+                    listaId = data.listas[0].id;
+                    await carregarItens();
+                } else {
+                    await criarNovaLista();
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                await criarNovaLista();
+            }
+        }
+
+        async function criarNovaLista() {
+            const usuario = localStorage.getItem('usuario_nome');
+
+            try {
+                const response = await fetch(`${API_URL}/api/listas?usuario_nome=${usuario}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome: 'Minha Lista' })
+                });
+                const data = await response.json();
+                listaId = data.id;
+            } catch (error) {
+                console.error('Erro ao criar lista:', error);
+            }
+        }
+
+        async function carregarItens() {
+            try {
+                const response = await fetch(`${API_URL}/api/listas/${listaId}`);
+                const data = await response.json();
+                itens = data.itens || [];
+                renderizarItens();
+            } catch (error) {
+                console.error('Erro ao carregar itens:', error);
+            }
+        }
+
+        function renderizarItens() {
+            const lista = document.getElementById('listaItens');
+            const btnComparar = document.getElementById('btnComparar');
+
+            if (itens.length === 0) {
+                lista.innerHTML = `
+                    <li class="empty-state">
+                        <span class="material-symbols-outlined">shopping_cart</span>
+                        <p><strong>Sua lista esta vazia</strong></p>
+                        <p>Adicione produtos acima!</p>
+                    </li>
+                `;
+                btnComparar.disabled = true;
+                return;
+            }
+
+            btnComparar.disabled = false;
+
+            lista.innerHTML = itens.map(item => `
+                <li class="item ${item.comprado ? 'comprado' : ''}" data-id="${item.id}">
+                    <input type="checkbox" ${item.comprado ? 'checked' : ''}
+                           onchange="toggleComprado(${item.id}, this.checked)">
+                    <div class="item-info">
+                        <div class="item-name">${item.nome_produto} (${item.quantidade}x)</div>
+                        ${item.melhor_preco ? `
+                            <div class="item-price">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">sell</span>
+                                R$ ${item.melhor_preco.toFixed(2)} - ${item.melhor_supermercado}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <button class="item-delete" onclick="removerItem(${item.id})">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </li>
+            `).join('');
+        }
+
+        async function adicionarItem() {
+            const input = document.getElementById('itemInput');
+            const nome = input.value.trim();
+
+            if (!nome || nome.length < 2) {
+                alert('Digite o nome do produto');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/listas/${listaId}/itens`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome_produto: nome, quantidade: 1 })
+                });
+
+                const data = await response.json();
+                if (data.sucesso) {
+                    input.value = '';
+                    await carregarItens();
+                }
+            } catch (error) {
+                console.error('Erro ao adicionar item:', error);
+            }
+        }
+
+        async function toggleComprado(itemId, comprado) {
+            try {
+                await fetch(`${API_URL}/api/listas/itens/${itemId}/comprado?comprado=${comprado}`, {
+                    method: 'PUT'
+                });
+                await carregarItens();
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        async function removerItem(itemId) {
+            try {
+                await fetch(`${API_URL}/api/listas/itens/${itemId}`, { method: 'DELETE' });
+                await carregarItens();
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        async function compararPrecos() {
+            const btnComparar = document.getElementById('btnComparar');
+            const resultado = document.getElementById('resultado');
+
+            btnComparar.disabled = true;
+            btnComparar.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Comparando...';
+            resultado.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Buscando melhores precos...</p>
+                </div>
+            `;
+
+            try {
+                let url = `${API_URL}/api/listas/${listaId}/comparar`;
+
+                // Adiciona localizacao se disponivel
+                if (navigator.geolocation) {
+                    try {
+                        const pos = await new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                        });
+                        url += `?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}`;
+                    } catch (e) {
+                        console.log('Localizacao nao disponivel');
+                    }
+                }
+
+                const response = await fetch(url, { method: 'POST' });
+                const data = await response.json();
+
+                exibirResultado(data);
+            } catch (error) {
+                console.error('Erro:', error);
+                resultado.innerHTML = '<div class="card">Erro ao comparar precos</div>';
+            } finally {
+                btnComparar.disabled = false;
+                btnComparar.innerHTML = '<span class="material-symbols-outlined">compare_arrows</span> Comparar Precos';
+            }
+        }
+
+        function exibirResultado(data) {
+            const resultado = document.getElementById('resultado');
+
+            if (!data.melhor_supermercado) {
+                resultado.innerHTML = '<div class="card">Nenhum preco encontrado para os itens da lista</div>';
+                return;
+            }
+
+            const melhor = data.melhor_supermercado;
+            const outros = data.supermercados.slice(1, 4);
+
+            resultado.innerHTML = `
+                <div class="resultado">
+                    <h3>
+                        <span class="material-symbols-outlined">emoji_events</span>
+                        Melhor Opcao
+                    </h3>
+                    <div class="melhor-mercado">
+                        <div class="nome">${melhor.nome.toUpperCase()}</div>
+                        <div class="total">R$ ${melhor.total.toFixed(2)}</div>
+                        ${melhor.distancia_km ? `
+                            <div class="distancia">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">location_on</span>
+                                ${melhor.distancia_km.toFixed(1)} km de distancia
+                            </div>
+                        ` : ''}
+                        <div class="economia">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">savings</span>
+                            Economia de R$ ${data.economia_potencial.toFixed(2)}
+                        </div>
+                    </div>
+
+                    ${outros.length > 0 ? `
+                        <div class="outros-mercados">
+                            <h4>Outras opcoes:</h4>
+                            ${outros.map(m => `
+                                <div class="mercado-item">
+                                    <span>${m.nome}</span>
+                                    <span><strong>R$ ${m.total.toFixed(2)}</strong></span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

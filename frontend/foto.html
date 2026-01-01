@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#10b981">
+    <title>Adicionar por Foto - Comparador de Precos</title>
+    <link rel="stylesheet" href="/css/neomorphic.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .page-header h1 {
+            color: var(--text-primary);
+            font-size: 22px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 15px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .camera-container {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow-neo-out);
+            margin-bottom: 20px;
+        }
+
+        .camera-container h3 {
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .camera-preview {
+            width: 100%;
+            max-height: 400px;
+            background: #000;
+            border-radius: var(--border-radius-sm);
+            overflow: hidden;
+            position: relative;
+            display: none;
+        }
+
+        .camera-preview.show {
+            display: block;
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: auto;
+            border-radius: var(--border-radius-sm);
+            display: none;
+        }
+
+        .preview-image.show {
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 14px 20px;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-neo-out);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: var(--shadow-neo-in);
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .upload-area {
+            border: 3px dashed var(--primary);
+            border-radius: var(--border-radius);
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--primary-light);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-hover);
+            background: var(--bg-secondary);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--success);
+            background: var(--success-light);
+        }
+
+        .upload-area .material-symbols-outlined {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .upload-area .upload-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .upload-area .upload-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .result-box {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .result-box.show {
+            display: block;
+        }
+
+        .result-box h3 {
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: var(--bg-primary);
+            border-radius: var(--border-radius-sm);
+            box-shadow: var(--shadow-neo-in);
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .result-value {
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .price-big {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .info-box {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .info-box strong {
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+        }
+
+        .info-box li {
+            padding: 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+        }
+
+        .info-box li .material-symbols-outlined {
+            font-size: 18px;
+            color: var(--primary);
+        }
+
+        .info-tip {
+            background: var(--warning-light);
+            padding: 10px 12px;
+            border-radius: var(--border-radius-sm);
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--warning);
+        }
+
+        .cloud-info {
+            background: var(--primary-light);
+            padding: 12px;
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid var(--bg-secondary);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .location-info {
+            background: var(--warning-light);
+            padding: 12px;
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: var(--warning);
+            display: none;
+        }
+
+        .location-info.show {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin: 15px 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-size: 16px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-neo-in);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            box-shadow: var(--shadow-neo-in), 0 0 0 2px var(--primary);
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .success-message {
+            background: var(--success-light);
+            color: var(--success);
+            padding: 15px;
+            border-radius: var(--border-radius-sm);
+            margin-top: 20px;
+            display: none;
+            border-left: 4px solid var(--success);
+        }
+
+        .success-message.show {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .error-message {
+            background: var(--danger-light);
+            color: var(--danger);
+            padding: 15px;
+            border-radius: var(--border-radius-sm);
+            margin-top: 20px;
+            display: none;
+            border-left: 4px solid var(--danger);
+        }
+
+        .error-message.show {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/contribuir.html" class="back-link">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Voltar
+        </a>
+
+        <div class="page-header">
+            <h1>
+                <span class="material-symbols-outlined">photo_camera</span>
+                Adicionar por Foto
+            </h1>
+            <p>Tire uma foto do preco e deixe a IA fazer o resto!</p>
+        </div>
+
+        <div class="info-box">
+            <strong>
+                <span class="material-symbols-outlined">lightbulb</span>
+                Como funciona:
+            </strong>
+            <ul>
+                <li>
+                    <span class="material-symbols-outlined">photo_camera</span>
+                    Tire uma foto do preco na prateleira
+                </li>
+                <li>
+                    <span class="material-symbols-outlined">psychology</span>
+                    O sistema reconhece o preco automaticamente
+                </li>
+                <li>
+                    <span class="material-symbols-outlined">check_circle</span>
+                    Confirme os dados e envie!
+                </li>
+            </ul>
+            <div class="info-tip">
+                <span class="material-symbols-outlined">tips_and_updates</span>
+                Foto nitida e com boa iluminacao = melhor resultado!
+            </div>
+        </div>
+
+        <div class="cloud-info">
+            <span class="material-symbols-outlined">cloud_done</span>
+            <span><strong>Salvo na nuvem</strong> - Suas contribuicoes ficam guardadas permanentemente</span>
+        </div>
+
+        <div class="location-info" id="locationInfo">
+            <span class="material-symbols-outlined">location_on</span>
+            <span id="locationText">Obtendo localizacao...</span>
+        </div>
+
+        <div class="camera-container">
+            <h3>
+                <span class="material-symbols-outlined">add_a_photo</span>
+                Escolha uma opcao:
+            </h3>
+
+            <!-- Upload Area -->
+            <div class="upload-area" id="uploadArea">
+                <span class="material-symbols-outlined">photo_camera</span>
+                <div class="upload-title">
+                    Clique para tirar foto ou escolher arquivo
+                </div>
+                <div class="upload-subtitle">
+                    Aceita: JPG, PNG (max 10MB)
+                </div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" capture="environment">
+
+            <!-- Camera Preview -->
+            <div class="camera-preview" id="cameraPreview">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <!-- Image Preview -->
+            <img id="imagePreview" class="preview-image">
+
+            <!-- Buttons -->
+            <div class="button-group" id="buttonGroup" style="display: none;">
+                <button class="btn-primary" id="captureBtn" style="display: none;">
+                    <span class="material-symbols-outlined">photo_camera</span>
+                    Capturar
+                </button>
+                <button class="btn-secondary" id="analyzeBtn" style="display: none;">
+                    <span class="material-symbols-outlined">search</span>
+                    Analisar Foto
+                </button>
+                <button class="btn-danger" id="retakeBtn" style="display: none;">
+                    <span class="material-symbols-outlined">refresh</span>
+                    Nova Foto
+                </button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analisando foto com IA...</p>
+        </div>
+
+        <div class="result-box" id="resultBox">
+            <h3>
+                <span class="material-symbols-outlined">auto_awesome</span>
+                Dados Extraidos
+            </h3>
+
+            <div class="result-item">
+                <span class="result-label">
+                    <span class="material-symbols-outlined">sell</span>
+                    Preco:
+                </span>
+                <span class="price-big" id="extractedPrice">-</span>
+            </div>
+
+            <div class="result-item" id="productBox" style="display: none;">
+                <span class="result-label">
+                    <span class="material-symbols-outlined">inventory_2</span>
+                    Produto:
+                </span>
+                <span class="result-value" id="extractedProduct">-</span>
+            </div>
+
+            <div class="result-item" id="brandBox" style="display: none;">
+                <span class="result-label">
+                    <span class="material-symbols-outlined">label</span>
+                    Marca:
+                </span>
+                <span class="result-value" id="extractedBrand">-</span>
+            </div>
+
+            <div class="form-group">
+                <label for="supermercadoInput">Supermercado:</label>
+                <input type="text" id="supermercadoInput" placeholder="Ex: Carrefour" required>
+            </div>
+
+            <div class="form-group">
+                <label for="observacaoInput">Observacoes (opcional):</label>
+                <input type="text" id="observacaoInput" placeholder="Ex: Promocao valida ate...">
+            </div>
+
+            <button class="btn-primary" id="submitBtn" style="width: 100%; margin-top: 20px;">
+                <span class="material-symbols-outlined">check_circle</span>
+                Confirmar e Enviar
+            </button>
+        </div>
+
+        <div class="success-message" id="successMessage">
+            <span class="material-symbols-outlined">check_circle</span>
+            Contribuicao enviada com sucesso! Obrigado!
+        </div>
+
+        <div class="error-message" id="errorMessage">
+            <span class="material-symbols-outlined">error</span>
+            <span id="errorText"></span>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a class="nav-item" href="/">
+            <span class="material-symbols-outlined nav-item-icon">home</span>
+            <span class="nav-item-label">Inicio</span>
+        </a>
+        <a class="nav-item" href="/scanner.html">
+            <span class="material-symbols-outlined nav-item-icon">qr_code_scanner</span>
+            <span class="nav-item-label">Scanner</span>
+        </a>
+        <div class="fab-container">
+            <a class="fab active" href="/contribuir.html">
+                <span class="material-symbols-outlined">add</span>
+            </a>
+        </div>
+        <a class="nav-item" href="/lista-compras.html">
+            <span class="material-symbols-outlined nav-item-icon">checklist</span>
+            <span class="nav-item-label">Lista</span>
+        </a>
+        <a class="nav-item" href="/">
+            <span class="material-symbols-outlined nav-item-icon">person</span>
+            <span class="nav-item-label">Perfil</span>
+        </a>
+    </nav>
+
+    <script>
+        // Initialize theme
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        }
+        initTheme();
+    </script>
+    <script src="/src/foto.js"></script>
+</body>
+</html>
