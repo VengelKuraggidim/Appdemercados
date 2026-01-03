@@ -38,6 +38,7 @@ from app.scrapers.scraper_manager import ScraperManager
 from app.scrapers.scraper_tempo_real import scraper_tempo_real
 from app.scrapers.buscar_precos_reais import buscar_precos_reais
 from app.scrapers.buscar_precos_locais import buscar_precos_proximos  # Supermercados locais
+from app.scrapers.buscar_contribuicoes_locais import buscar_contribuicoes_locais  # Contribuicoes da comunidade
 from app.utils.comparador import Comparador
 from app.utils.geolocalizacao import (
     GeoLocalizacao, AnalisadorCustoBeneficio, ranquear_precos_por_custo_beneficio
@@ -152,64 +153,85 @@ async def buscar_produtos(
         }
 
     produtos_encontrados = []
+    contribuicoes_locais_count = 0
 
-    # SEMPRE buscar produtos REAIS do banco primeiro (contribuições dos usuários)
-    data_limite = datetime.now() - timedelta(days=30)  # Last 30 days
+    # ============================================================
+    # PASSO 1: CONTRIBUICOES LOCAIS (PRIORIDADE MAXIMA)
+    # Se o usuario tem geolocalizacao, buscar contribuicoes proximas PRIMEIRO
+    # ============================================================
+    if request.latitude is not None and request.longitude is not None:
+        try:
+            print(f"\n[CONTRIB LOCAL] Buscando contribuicoes da comunidade proximas...")
+            contribuicoes = buscar_contribuicoes_locais(
+                db=db,
+                termo=request.termo,
+                latitude=request.latitude,
+                longitude=request.longitude,
+                raio_km=request.distancia_maxima_km or 15.0,
+                limite=30,
+                dias_max=30
+            )
+
+            for item in contribuicoes:
+                produtos_encontrados.append(item)
+                contribuicoes_locais_count += 1
+
+            print(f"   [OK] {contribuicoes_locais_count} contribuicoes locais encontradas!")
+
+        except Exception as e:
+            print(f"   [WARN] Erro ao buscar contribuicoes locais: {e}")
+
+    # ============================================================
+    # PASSO 1B: CONTRIBUICOES DO BANCO (SEM GEOLOCALIZACAO)
+    # Buscar outras contribuicoes que nao tem lat/lon
+    # ============================================================
+    data_limite = datetime.now() - timedelta(days=30)
 
     precos_db = db.query(Preco).join(Produto).filter(
         Produto.nome.ilike(f"%{request.termo}%"),
         Preco.data_coleta >= data_limite,
         Preco.disponivel == True
-    ).order_by(Preco.data_coleta.desc()).all()  # MAIS RECENTES PRIMEIRO!
+    ).order_by(Preco.data_coleta.desc()).limit(50).all()
 
-    # Add products from database (PRODUTOS REAIS)
+    db_count = 0
     for preco in precos_db:
-        produto_dict = {
-            'nome': preco.produto.nome,
-            'marca': preco.produto.marca,
-            'preco': preco.preco,
-            'em_promocao': preco.em_promocao,
-            'url': preco.url or '#',
-            'supermercado': preco.supermercado,
-            'disponivel': preco.disponivel,
-            'fonte': 'contribuicao' if preco.manual else 'scraper',
-            'data_coleta': preco.data_coleta.isoformat() if preco.data_coleta else None,
-            'latitude': preco.latitude,
-            'longitude': preco.longitude,
-            'endereco': preco.endereco,
-            'produto_real': True  # MARCAR COMO REAL!
-        }
-        produtos_encontrados.append(produto_dict)
+        # Evitar duplicatas com contribuicoes locais ja adicionadas
+        duplicado = False
+        for existente in produtos_encontrados:
+            if (existente.get('preco') == preco.preco and
+                existente.get('supermercado', '').lower() == preco.supermercado.lower()):
+                duplicado = True
+                break
 
-    print(f"   📦 Encontrados {len(produtos_encontrados)} produtos REAIS no banco de dados")
+        if not duplicado:
+            produto_dict = {
+                'nome': preco.produto.nome,
+                'marca': preco.produto.marca,
+                'preco': preco.preco,
+                'em_promocao': preco.em_promocao,
+                'url': preco.url or '#',
+                'supermercado': preco.supermercado,
+                'disponivel': preco.disponivel,
+                'fonte': 'contribuicao' if preco.manual else 'banco_local',
+                'data_coleta': preco.data_coleta.isoformat() if preco.data_coleta else None,
+                'latitude': preco.latitude,
+                'longitude': preco.longitude,
+                'endereco': preco.endereco,
+                'produto_real': True
+            }
+            produtos_encontrados.append(produto_dict)
+            db_count += 1
 
-    # ✨ Buscar precos REAIS da internet (multiplas lojas)
-    precos_reais_count = 0
-    try:
-        print(f"\n🌐 Buscando precos REAIS na internet para '{request.termo}'...")
-        precos_reais = buscar_precos_reais(request.termo, limite=30)  # Limite maior pois agora só temos preços reais
+    print(f"   [DB] Encontrados {db_count} produtos adicionais no banco de dados")
 
-        for item in precos_reais:
-            item['fonte'] = 'internet_real'
-            item['data_coleta'] = datetime.now().isoformat()
-            item['produto_real'] = True  # PRECO REAL DA INTERNET!
-            item['latitude'] = None
-            item['longitude'] = None
-            item['endereco'] = None
-            item['marca'] = None
-            produtos_encontrados.append(item)
-            precos_reais_count += 1
-
-        print(f"   ✅ {precos_reais_count} precos REAIS encontrados na internet!")
-
-    except Exception as e:
-        print(f"   ⚠️  Erro ao buscar precos reais: {e}")
-
-    # ✨ Buscar preços em SUPERMERCADOS FÍSICOS PRÓXIMOS ao usuário
+    # ============================================================
+    # PASSO 2: SUPERMERCADOS FISICOS PROXIMOS (via OpenStreetMap)
+    # Descobre supermercados proximos e tenta buscar precos nos sites
+    # ============================================================
     precos_locais_count = 0
     if request.latitude is not None and request.longitude is not None:
         try:
-            print(f"\n📍 Buscando precos em supermercados PROXIMOS...")
+            print(f"\n[GEO] Buscando supermercados FISICOS proximos via OpenStreetMap...")
             precos_locais = buscar_precos_proximos(
                 termo=request.termo,
                 latitude=request.latitude,
@@ -230,15 +252,45 @@ async def buscar_produtos(
                 if not duplicado:
                     item['data_coleta'] = datetime.now().isoformat()
                     item['produto_real'] = True
+                    item['fonte'] = 'supermercado_fisico'
                     produtos_encontrados.append(item)
                     precos_locais_count += 1
 
-            print(f"   ✅ {precos_locais_count} precos de supermercados PROXIMOS encontrados!")
+            print(f"   [OK] {precos_locais_count} supermercados fisicos encontrados!")
 
         except Exception as e:
-            print(f"   ⚠️  Erro ao buscar precos locais: {e}")
+            print(f"   [WARN] Erro ao buscar supermercados fisicos: {e}")
 
-    print(f"\n📊 Total de preços REAIS encontrados: {len(produtos_encontrados)}")
+    # ============================================================
+    # PASSO 4: LOJAS ONLINE COMO FALLBACK (APENAS SE POUCOS RESULTADOS)
+    # So buscar na internet se tiver menos de 5 resultados locais
+    # ============================================================
+    precos_reais_count = 0
+    if len(produtos_encontrados) < 5:
+        try:
+            print(f"\n[WEB] Poucos resultados locais ({len(produtos_encontrados)}), buscando na internet...")
+            precos_reais = buscar_precos_reais(request.termo, limite=15)
+
+            for item in precos_reais:
+                item['fonte'] = 'loja_online'
+                item['data_coleta'] = datetime.now().isoformat()
+                item['produto_real'] = True
+                item['latitude'] = None
+                item['longitude'] = None
+                item['endereco'] = None
+                item['marca'] = item.get('marca')
+                item['is_online'] = True  # Marcar como loja online
+                produtos_encontrados.append(item)
+                precos_reais_count += 1
+
+            print(f"   [OK] {precos_reais_count} precos de lojas ONLINE (fallback)")
+
+        except Exception as e:
+            print(f"   [WARN] Erro ao buscar lojas online: {e}")
+    else:
+        print(f"\n[WEB] Pulando busca online - ja temos {len(produtos_encontrados)} resultados locais!")
+
+    print(f"\n[TOTAL] Total de precos encontrados: {len(produtos_encontrados)}")
 
     # Filtrar e ordenar por proximidade se localização fornecida
     if request.latitude is not None and request.longitude is not None:

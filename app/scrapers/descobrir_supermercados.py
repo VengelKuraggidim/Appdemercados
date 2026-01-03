@@ -36,8 +36,8 @@ class DescobrirSupermercados:
         Returns:
             Lista de supermercados com nome, endereço, distância, coordenadas
         """
-        print(f"\n🔍 Descobrindo supermercados próximos a ({latitude}, {longitude})")
-        print(f"   📏 Raio de busca: {raio_km} km")
+        print(f"\n[OSM] Descobrindo supermercados proximos a ({latitude}, {longitude})")
+        print(f"   Raio de busca: {raio_km} km")
 
         # Converter raio de km para metros
         raio_metros = raio_km * 1000
@@ -65,13 +65,13 @@ class DescobrirSupermercados:
             )
 
             if response.status_code != 200:
-                print(f"   ❌ Erro na API Overpass: {response.status_code}")
+                print(f"   [ERRO] Erro na API Overpass: {response.status_code}")
                 return []
 
             data = response.json()
             elementos = data.get('elements', [])
 
-            print(f"   ✅ Encontrados {len(elementos)} supermercados no OpenStreetMap")
+            print(f"   [OK] Encontrados {len(elementos)} supermercados no OpenStreetMap")
 
             for elemento in elementos:
                 try:
@@ -141,18 +141,18 @@ class DescobrirSupermercados:
             # Ordenar por distância
             supermercados.sort(key=lambda x: x['distancia_km'])
 
-            print(f"   📍 Processados {len(supermercados)} supermercados com dados completos")
+            print(f"   [OK] Processados {len(supermercados)} supermercados com dados completos")
 
             # Mostrar preview
             if supermercados:
-                print(f"\n   🏪 Supermercados mais próximos:")
+                print(f"\n   Supermercados mais proximos:")
                 for i, s in enumerate(supermercados[:5], 1):
                     print(f"   {i}. {s['nome']} - {s['distancia_km']} km")
                     if s['endereco']:
-                        print(f"      📍 {s['endereco']}")
+                        print(f"      -> {s['endereco']}")
 
         except Exception as e:
-            print(f"   ❌ Erro ao buscar supermercados: {e}")
+            print(f"   [ERRO] Erro ao buscar supermercados: {e}")
 
         return supermercados
 
@@ -166,7 +166,7 @@ class DescobrirSupermercados:
         Returns:
             Lista de supermercados
         """
-        print(f"\n🔍 Buscando localização de: {endereco}")
+        print(f"\n[GEO] Buscando localizacao de: {endereco}")
 
         # Primeiro, geocode o endereço para pegar lat/lon
         try:
@@ -186,20 +186,20 @@ class DescobrirSupermercados:
             )
 
             if response.status_code != 200 or not response.json():
-                print(f"   ❌ Não foi possível geocodificar o endereço")
+                print(f"   [ERRO] Nao foi possivel geocodificar o endereco")
                 return []
 
             result = response.json()[0]
             latitude = float(result['lat'])
             longitude = float(result['lon'])
 
-            print(f"   ✅ Localização encontrada: ({latitude}, {longitude})")
+            print(f"   [OK] Localizacao encontrada: ({latitude}, {longitude})")
 
             # Agora buscar supermercados próximos
             return self.descobrir_por_gps(latitude, longitude)
 
         except Exception as e:
-            print(f"   ❌ Erro no geocoding: {e}")
+            print(f"   [ERRO] Erro no geocoding: {e}")
             return []
 
     def descobrir_cidade(self, latitude: float, longitude: float) -> str:
@@ -292,19 +292,19 @@ def testar_descoberta(latitude: float = None, longitude: float = None):
         # Padrão: Av. Paulista, São Paulo
         latitude = -23.5505
         longitude = -46.6333
-        print("⚠️  Usando coordenadas padrão (Av. Paulista, SP)")
+        print("[AVISO] Usando coordenadas padrao (Av. Paulista, SP)")
 
     descobridor = DescobrirSupermercados()
 
     # Descobrir cidade
     cidade = descobridor.descobrir_cidade(latitude, longitude)
-    print(f"\n📍 Cidade detectada: {cidade}")
+    print(f"\n[GEO] Cidade detectada: {cidade}")
 
     # Descobrir supermercados
     supermercados = descobridor.descobrir_por_gps(latitude, longitude, raio_km=5.0)
 
     print(f"\n{'='*70}")
-    print(f"✅ Total: {len(supermercados)} supermercados encontrados")
+    print(f"[OK] Total: {len(supermercados)} supermercados encontrados")
     print(f"{'='*70}")
 
     return supermercados
