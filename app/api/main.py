@@ -338,9 +338,10 @@ async def buscar_produtos(
                 )
                 produto['distancia_km'] = round(distancia, 2)
 
-                # Calcular custo do deslocamento (ida e volta)
+                # Calcular custo do deslocamento (ida e volta) - objeto completo para o frontend
                 custo_desloc = analisador.calcular_custo_deslocamento(distancia)
-                produto['custo_deslocamento'] = round(custo_desloc['custo_total'], 2)
+                produto['custo_deslocamento'] = custo_desloc  # Objeto com custo_total, custo_transporte, custo_tempo
+                produto['tempo_estimado_minutos'] = custo_desloc['tempo_estimado_minutos']
 
                 # CUSTO TOTAL REAL = preço + custo deslocamento
                 produto['custo_total_real'] = round(preco + custo_desloc['custo_total'], 2)
@@ -349,9 +350,8 @@ async def buscar_produtos(
                 if distancia <= distancia_maxima:
                     produtos_com_localizacao.append(produto)
             else:
-                # Produtos sem localização (online, contribuições sem GPS)
-                produto['distancia_km'] = None
-                produto['custo_deslocamento'] = 0
+                # Produtos sem localização - NÃO adicionar distancia_km
+                # O frontend só mostra análise de custo-benefício se distancia_km existir
                 produto['custo_total_real'] = preco
                 produtos_sem_localizacao.append(produto)
 

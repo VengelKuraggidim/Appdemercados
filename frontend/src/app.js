@@ -132,7 +132,9 @@ async function buscarProdutos() {
         }
 
         if (data.produtos && data.produtos.length > 0) {
-            exibirResultados(data.produtos, useGeoOptimization);
+            // Usar tem_geolocalizacao da resposta OU useGeoOptimization do checkbox
+            const mostrarCustoBeneficio = data.tem_geolocalizacao || useGeoOptimization;
+            exibirResultados(data.produtos, mostrarCustoBeneficio);
             exibirEstatisticas(data.produtos);
 
             // Mostrar info de tokens gastos se disponível
