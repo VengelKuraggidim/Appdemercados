@@ -2203,3 +2203,104 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+
+/* ============================================
+   BOTAO ANALISE CUSTO-BENEFICIO
+   ============================================ */
+
+.custo-beneficio-container {
+    margin-top: 12px;
+}
+
+.btn-ver-analise {
+    width: 100%;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, var(--emerald-500), var(--teal-500));
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-ver-analise:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-ver-analise:active {
+    transform: translateY(0);
+}
+
+.economia-info {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 10px;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.economia-detalhes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.economia-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    font-size: 13px;
+}
+
+.economia-linha:last-child {
+    border-bottom: none;
+}
+
+.economia-linha.economia-total {
+    background: linear-gradient(135deg, var(--emerald-50), var(--teal-400));
+    margin: 8px -10px -10px;
+    padding: 10px;
+    border-radius: 0 0 8px 8px;
+    font-weight: 600;
+}
+
+.economia-resumo {
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--emerald-100);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--emerald-800);
+    text-align: center;
+}
+
+.economia-resumo.negativa {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .economia-info {
+    background: var(--bg-card);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .economia-linha.economia-total {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(20, 184, 166, 0.2));
+}
+
+[data-theme="dark"] .economia-resumo {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--emerald-300);
+}
+
+[data-theme="dark"] .economia-resumo.negativa {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fcd34d;
+}

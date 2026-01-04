@@ -280,42 +280,51 @@ function exibirResultados(produtos, comGeolocalizacao = false) {
                 }
             }
 
+            // ID único para o toggle
+            const toggleId = `analise-${index}`;
+
             geoInfo = `
-                <div class="economia-info">
-                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                        <strong style="font-size: 13px;">💰 Análise de Custo-Benefício</strong>
-                        <div class="info-tooltip">
-                            i
-                            <div class="tooltip-content">
-                                Cálculo considera: preço + distância (ida/volta) + tempo
+                <div class="custo-beneficio-container">
+                    <button class="btn-ver-analise" onclick="toggleAnalise('${toggleId}', this)">
+                        📊 Ver análise de custo-benefício
+                    </button>
+
+                    <div id="${toggleId}" class="economia-info" style="display: none;">
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <strong style="font-size: 13px;">💰 Análise de Custo-Benefício</strong>
+                            <div class="info-tooltip">
+                                i
+                                <div class="tooltip-content">
+                                    Cálculo considera: preço + distância (ida/volta) + tempo
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="economia-detalhes">
-                        <div class="economia-linha">
-                            <span>📍 Distância:</span>
-                            <strong>${produto.distancia_km.toFixed(1)} km</strong>
+                        <div class="economia-detalhes">
+                            <div class="economia-linha">
+                                <span>📍 Distância:</span>
+                                <strong>${produto.distancia_km.toFixed(1)} km</strong>
+                            </div>
+                            <div class="economia-linha">
+                                <span>⏱️ Tempo estimado:</span>
+                                <strong>${tempoMinutos.toFixed(0)} min</strong>
+                            </div>
+                            <div class="economia-linha">
+                                <span>🚗 Combustível/Transporte:</span>
+                                <strong>R$ ${custoTransporte.toFixed(2)}</strong>
+                            </div>
+                            <div class="economia-linha">
+                                <span>⌚ Custo do tempo:</span>
+                                <strong>R$ ${custoTempo.toFixed(2)}</strong>
+                            </div>
+                            <div class="economia-linha economia-total">
+                                <span>💵 Custo Real Total:</span>
+                                <strong style="font-size: 15px;">R$ ${produto.custo_total_real.toFixed(2)}</strong>
+                            </div>
                         </div>
-                        <div class="economia-linha">
-                            <span>⏱️ Tempo estimado:</span>
-                            <strong>${tempoMinutos.toFixed(0)} min</strong>
-                        </div>
-                        <div class="economia-linha">
-                            <span>🚗 Combustível/Transporte:</span>
-                            <strong>R$ ${custoTransporte.toFixed(2)}</strong>
-                        </div>
-                        <div class="economia-linha">
-                            <span>⌚ Custo do tempo:</span>
-                            <strong>R$ ${custoTempo.toFixed(2)}</strong>
-                        </div>
-                        <div class="economia-linha economia-total">
-                            <span>💵 Custo Real Total:</span>
-                            <strong style="font-size: 15px;">R$ ${produto.custo_total_real.toFixed(2)}</strong>
-                        </div>
-                    </div>
 
-                    ${analiseEconomia}
+                        ${analiseEconomia}
+                    </div>
                 </div>
             `;
         }
@@ -589,6 +598,18 @@ function showGeoLocationUI() {
 
 function toggleGeoOptimization(enabled) {
     useGeoOptimization = enabled;
+}
+
+// Toggle para mostrar/ocultar análise de custo-benefício
+function toggleAnalise(id, button) {
+    const elemento = document.getElementById(id);
+    if (elemento) {
+        const isVisible = elemento.style.display !== 'none';
+        elemento.style.display = isVisible ? 'none' : 'block';
+        button.textContent = isVisible
+            ? '📊 Ver análise de custo-benefício'
+            : '📊 Ocultar análise';
+    }
 }
 
 // Carregar supermercados dinamicamente do banco
