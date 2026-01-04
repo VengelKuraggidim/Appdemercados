@@ -113,12 +113,12 @@ class AnalisadorCustoBeneficio:
         # Custo do combustível/transporte
         custo_transporte = distancia_total * self.custo_por_km
 
-        # Custo do tempo (se habilitado)
-        custo_tempo = 0.0
-        tempo_horas = 0.0
+        # Tempo estimado (sempre calcular para mostrar ao usuário)
+        tempo_horas = distancia_total / self.VELOCIDADE_MEDIA_URBANA
 
+        # Custo do tempo (somente se habilitado)
+        custo_tempo = 0.0
         if self.considerar_tempo:
-            tempo_horas = distancia_total / self.VELOCIDADE_MEDIA_URBANA
             custo_tempo = tempo_horas * self.VALOR_TEMPO_HORA
 
         custo_total = custo_transporte + custo_tempo
