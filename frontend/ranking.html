@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#10b981">
+    <title>Ranking - Comparador de Precos</title>
+    <link rel="stylesheet" href="/css/neomorphic.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 15px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .page-header {
+            background: var(--bg-card);
+            padding: 25px;
+            border-radius: var(--border-radius);
+            margin-bottom: 25px;
+            box-shadow: var(--shadow-neo-out);
+            text-align: center;
+        }
+
+        .page-header h1 {
+            color: var(--text-primary);
+            font-size: 26px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .page-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        /* Ranking Tabs */
+        .ranking-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            border: none;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            box-shadow: var(--shadow-neo-out);
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: var(--shadow-neo-in);
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: var(--bg-secondary);
+        }
+
+        /* Ranking List */
+        .ranking-section {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .ranking-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            color: white;
+        }
+
+        .ranking-header h2 {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ranking-list {
+            list-style: none;
+        }
+
+        .ranking-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s ease;
+        }
+
+        .ranking-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .ranking-item:last-child {
+            border-bottom: none;
+        }
+
+        .ranking-position {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .ranking-position.gold {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #333;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+        }
+
+        .ranking-position.silver {
+            background: linear-gradient(135deg, #C0C0C0 0%, #A0A0A0 100%);
+            color: #333;
+            box-shadow: 0 2px 8px rgba(192, 192, 192, 0.4);
+        }
+
+        .ranking-position.bronze {
+            background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(205, 127, 50, 0.4);
+        }
+
+        .ranking-position.normal {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+        }
+
+        .ranking-user {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-primary);
+        }
+
+        .user-stats {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .ranking-value {
+            text-align: right;
+        }
+
+        .ranking-value .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .ranking-value .label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* Badges Section */
+        .badges-section {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .badges-section h3 {
+            font-size: 16px;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badges-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+        }
+
+        .badge-item {
+            text-align: center;
+            padding: 15px 10px;
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            transition: transform 0.2s ease;
+        }
+
+        .badge-item:hover {
+            transform: translateY(-3px);
+        }
+
+        .badge-icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .badge-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .badge-desc {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 3px;
+        }
+
+        .badge-locked {
+            opacity: 0.4;
+            filter: grayscale(100%);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state .material-symbols-outlined {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--bg-secondary);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 11px;
+            padding: 5px 15px;
+            transition: color 0.2s ease;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item .material-symbols-outlined {
+            font-size: 24px;
+            margin-bottom: 3px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .ranking-item {
+                padding: 12px 15px;
+            }
+
+            .user-avatar {
+                width: 38px;
+                height: 38px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Voltar
+        </a>
+
+        <div class="page-header">
+            <h1>
+                <span class="material-symbols-outlined">emoji_events</span>
+                Ranking da Comunidade
+            </h1>
+            <p>Os maiores contribuidores de precos da sua regiao</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalContribuicoes">--</div>
+                <div class="stat-label">Contribuicoes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalUsuarios">--</div>
+                <div class="stat-label">Usuarios Ativos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalTokens">--</div>
+                <div class="stat-label">Tokens Minerados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="mediaReputacao">--</div>
+                <div class="stat-label">Media Reputacao</div>
+            </div>
+        </div>
+
+        <!-- Ranking Tabs -->
+        <div class="ranking-tabs">
+            <button class="tab-btn active" data-tab="tokens">
+                <span class="material-symbols-outlined">monetization_on</span>
+                Tokens
+            </button>
+            <button class="tab-btn" data-tab="contribuicoes">
+                <span class="material-symbols-outlined">volunteer_activism</span>
+                Contribuicoes
+            </button>
+            <button class="tab-btn" data-tab="reputacao">
+                <span class="material-symbols-outlined">verified</span>
+                Reputacao
+            </button>
+        </div>
+
+        <!-- Ranking List -->
+        <div class="ranking-section">
+            <div class="ranking-header">
+                <h2>
+                    <span class="material-symbols-outlined">leaderboard</span>
+                    Top Contribuidores
+                </h2>
+            </div>
+            <div id="rankingContent">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Carregando ranking...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Badges Section -->
+        <div class="badges-section">
+            <h3>
+                <span class="material-symbols-outlined">military_tech</span>
+                Conquistas Disponiveis
+            </h3>
+            <div class="badges-grid" id="badgesGrid">
+                <!-- Badges will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="/" class="nav-item">
+            <span class="material-symbols-outlined">search</span>
+            Buscar
+        </a>
+        <a href="/frontend/contribuir.html" class="nav-item">
+            <span class="material-symbols-outlined">add_circle</span>
+            Contribuir
+        </a>
+        <a href="/frontend/ranking.html" class="nav-item active">
+            <span class="material-symbols-outlined">emoji_events</span>
+            Ranking
+        </a>
+        <a href="/frontend/perfil.html" class="nav-item">
+            <span class="material-symbols-outlined">person</span>
+            Perfil
+        </a>
+    </nav>
+
+    <script>
+        // Available badges
+        const BADGES = [
+            { id: 'primeiro_preco', icon: '🎯', name: 'Primeiro Preco', desc: 'Contribuiu 1 preco', requirement: 1 },
+            { id: 'contribuidor_10', icon: '⭐', name: 'Contribuidor', desc: '10 contribuicoes', requirement: 10 },
+            { id: 'contribuidor_50', icon: '🌟', name: 'Super Contribuidor', desc: '50 contribuicoes', requirement: 50 },
+            { id: 'contribuidor_100', icon: '💫', name: 'Mega Contribuidor', desc: '100 contribuicoes', requirement: 100 },
+            { id: 'minerador_100', icon: '💰', name: 'Minerador', desc: '100 tokens', requirement: 100 },
+            { id: 'minerador_500', icon: '💎', name: 'Minerador Pro', desc: '500 tokens', requirement: 500 },
+            { id: 'validador', icon: '✅', name: 'Validador', desc: 'Validou 10 precos', requirement: 10 },
+            { id: 'reputacao_alta', icon: '🏆', name: 'Alta Reputacao', desc: 'Reputacao > 100', requirement: 100 },
+        ];
+
+        let currentTab = 'tokens';
+
+        // Load ranking data
+        async function loadRanking() {
+            const content = document.getElementById('rankingContent');
+
+            try {
+                const response = await fetch('/api/ranking-mineradores?limite=20');
+
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar ranking');
+                }
+
+                const data = await response.json();
+
+                if (!data.ranking || data.ranking.length === 0) {
+                    content.innerHTML = `
+                        <div class="empty-state">
+                            <span class="material-symbols-outlined">group_off</span>
+                            <p>Nenhum contribuidor ainda</p>
+                            <p style="font-size: 13px; margin-top: 10px;">Seja o primeiro a contribuir!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Update stats
+                updateStats(data);
+
+                // Render ranking
+                renderRanking(data.ranking);
+
+            } catch (error) {
+                console.error('Erro:', error);
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <span class="material-symbols-outlined">error</span>
+                        <p>Erro ao carregar ranking</p>
+                        <button onclick="loadRanking()" style="margin-top: 15px; padding: 10px 20px; cursor: pointer;">
+                            Tentar novamente
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function updateStats(data) {
+            const ranking = data.ranking || [];
+
+            // Total contributions (sum of all)
+            const totalContribs = ranking.reduce((sum, u) => sum + (u.total_transacoes || 0), 0);
+            document.getElementById('totalContribuicoes').textContent = totalContribs.toLocaleString('pt-BR');
+
+            // Total users
+            document.getElementById('totalUsuarios').textContent = ranking.length;
+
+            // Total tokens
+            const totalTokens = ranking.reduce((sum, u) => sum + (u.total_minerado || 0), 0);
+            document.getElementById('totalTokens').textContent = Math.round(totalTokens).toLocaleString('pt-BR');
+
+            // Average reputation
+            const avgRep = ranking.length > 0
+                ? ranking.reduce((sum, u) => sum + (u.reputacao || 50), 0) / ranking.length
+                : 0;
+            document.getElementById('mediaReputacao').textContent = Math.round(avgRep);
+        }
+
+        function renderRanking(ranking) {
+            const content = document.getElementById('rankingContent');
+
+            // Sort based on current tab
+            let sorted = [...ranking];
+            if (currentTab === 'tokens') {
+                sorted.sort((a, b) => (b.saldo || 0) - (a.saldo || 0));
+            } else if (currentTab === 'contribuicoes') {
+                sorted.sort((a, b) => (b.total_transacoes || 0) - (a.total_transacoes || 0));
+            } else if (currentTab === 'reputacao') {
+                sorted.sort((a, b) => (b.reputacao || 50) - (a.reputacao || 50));
+            }
+
+            let html = '<ul class="ranking-list">';
+
+            sorted.forEach((user, index) => {
+                const position = index + 1;
+                let positionClass = 'normal';
+                if (position === 1) positionClass = 'gold';
+                else if (position === 2) positionClass = 'silver';
+                else if (position === 3) positionClass = 'bronze';
+
+                const initial = (user.usuario || 'U')[0].toUpperCase();
+
+                let valueDisplay, valueLabel;
+                if (currentTab === 'tokens') {
+                    valueDisplay = (user.saldo || 0).toFixed(1);
+                    valueLabel = 'tokens';
+                } else if (currentTab === 'contribuicoes') {
+                    valueDisplay = user.total_transacoes || 0;
+                    valueLabel = 'contribuicoes';
+                } else {
+                    valueDisplay = user.reputacao || 50;
+                    valueLabel = 'reputacao';
+                }
+
+                html += `
+                    <li class="ranking-item">
+                        <div class="ranking-position ${positionClass}">${position}</div>
+                        <div class="ranking-user">
+                            <div class="user-avatar">${initial}</div>
+                            <div class="user-info">
+                                <div class="user-name">${user.usuario || 'Anonimo'}</div>
+                                <div class="user-stats">
+                                    ${user.total_transacoes || 0} contribuicoes |
+                                    ${(user.total_minerado || 0).toFixed(0)} tokens minerados
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ranking-value">
+                            <div class="value">${valueDisplay}</div>
+                            <div class="label">${valueLabel}</div>
+                        </div>
+                    </li>
+                `;
+            });
+
+            html += '</ul>';
+            content.innerHTML = html;
+        }
+
+        function renderBadges() {
+            const grid = document.getElementById('badgesGrid');
+
+            let html = '';
+            BADGES.forEach(badge => {
+                html += `
+                    <div class="badge-item">
+                        <div class="badge-icon">${badge.icon}</div>
+                        <div class="badge-name">${badge.name}</div>
+                        <div class="badge-desc">${badge.desc}</div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        // Tab handling
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTab = btn.dataset.tab;
+                loadRanking();
+            });
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRanking();
+            renderBadges();
+        });
+    </script>
+</body>
+</html>

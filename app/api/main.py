@@ -1782,12 +1782,94 @@ async def ranking_mineradores(
             "usuario": carteira.usuario_nome,
             "saldo": carteira.saldo,
             "total_minerado": stats["total_minerado"],
-            "total_transacoes": stats["total_transacoes"]
+            "total_transacoes": stats["total_transacoes"],
+            "reputacao": carteira.reputacao or 50,
+            "validacoes_corretas": carteira.validacoes_positivas or 0
         })
 
     return {
         "total": len(ranking),
         "ranking": ranking
+    }
+
+
+# ============================================
+# SISTEMA DE CONQUISTAS (BADGES)
+# ============================================
+
+BADGES_CONFIG = [
+    {"id": "primeiro_preco", "nome": "Primeiro Preco", "icone": "target", "descricao": "Contribuiu 1 preco", "requisito": {"tipo": "contribuicoes", "valor": 1}},
+    {"id": "contribuidor_10", "nome": "Contribuidor", "icone": "star", "descricao": "10 contribuicoes", "requisito": {"tipo": "contribuicoes", "valor": 10}},
+    {"id": "contribuidor_50", "nome": "Super Contribuidor", "icone": "star2", "descricao": "50 contribuicoes", "requisito": {"tipo": "contribuicoes", "valor": 50}},
+    {"id": "contribuidor_100", "nome": "Mega Contribuidor", "icone": "star3", "descricao": "100 contribuicoes", "requisito": {"tipo": "contribuicoes", "valor": 100}},
+    {"id": "minerador_100", "nome": "Minerador", "icone": "coin", "descricao": "100 tokens minerados", "requisito": {"tipo": "tokens", "valor": 100}},
+    {"id": "minerador_500", "nome": "Minerador Pro", "icone": "diamond", "descricao": "500 tokens minerados", "requisito": {"tipo": "tokens", "valor": 500}},
+    {"id": "validador", "nome": "Validador", "icone": "check", "descricao": "Validou 10 precos", "requisito": {"tipo": "validacoes", "valor": 10}},
+    {"id": "reputacao_alta", "nome": "Alta Reputacao", "icone": "trophy", "descricao": "Reputacao maior que 100", "requisito": {"tipo": "reputacao", "valor": 100}},
+]
+
+
+@app.get("/api/badges/{usuario_nome}")
+async def obter_badges_usuario(
+    usuario_nome: str,
+    db: Session = Depends(get_db)
+):
+    """Retorna as conquistas (badges) de um usuario"""
+
+    # Buscar dados do usuario
+    carteira = db.query(Carteira).filter(Carteira.usuario_nome == usuario_nome).first()
+
+    if not carteira:
+        return {"badges": [], "total_conquistadas": 0, "total_disponiveis": len(BADGES_CONFIG)}
+
+    # Obter estatisticas do usuario
+    crypto = CryptoManager(db)
+    stats = crypto.obter_saldo(usuario_nome)
+
+    user_data = {
+        "contribuicoes": stats.get("total_transacoes", 0),
+        "tokens": stats.get("total_minerado", 0),
+        "validacoes": carteira.validacoes_positivas or 0,
+        "reputacao": carteira.reputacao or 50
+    }
+
+    # Verificar cada badge
+    badges = []
+    conquistadas = 0
+
+    for badge in BADGES_CONFIG:
+        req = badge["requisito"]
+        valor_usuario = user_data.get(req["tipo"], 0)
+        conquistada = valor_usuario >= req["valor"]
+
+        if conquistada:
+            conquistadas += 1
+
+        badges.append({
+            "id": badge["id"],
+            "nome": badge["nome"],
+            "icone": badge["icone"],
+            "descricao": badge["descricao"],
+            "conquistada": conquistada,
+            "progresso": min(100, (valor_usuario / req["valor"]) * 100) if req["valor"] > 0 else 100,
+            "valor_atual": valor_usuario,
+            "valor_necessario": req["valor"]
+        })
+
+    return {
+        "usuario": usuario_nome,
+        "badges": badges,
+        "total_conquistadas": conquistadas,
+        "total_disponiveis": len(BADGES_CONFIG)
+    }
+
+
+@app.get("/api/badges")
+async def listar_badges():
+    """Lista todas as conquistas disponiveis no sistema"""
+    return {
+        "badges": BADGES_CONFIG,
+        "total": len(BADGES_CONFIG)
     }
 
 

@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#10b981">
+    <title>Meu Perfil - Comparador de Precos</title>
+    <link rel="stylesheet" href="/css/neomorphic.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 15px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Profile Header */
+        .profile-header {
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            color: white;
+            padding: 30px 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 700;
+            margin: 0 auto 15px;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+
+        .profile-name {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .profile-level {
+            font-size: 14px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .profile-level .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        /* Login Form */
+        .login-section {
+            background: var(--bg-card);
+            padding: 25px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .login-section h2 {
+            font-size: 20px;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .login-section p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .login-form input {
+            padding: 15px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            background: var(--bg-secondary);
+        }
+
+        .login-form input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .login-form button {
+            padding: 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .login-form button:hover {
+            background: #059669;
+        }
+
+        /* Wallet Card */
+        .wallet-card {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .wallet-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .wallet-balance {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .wallet-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .wallet-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .wallet-stat {
+            flex: 1;
+            text-align: center;
+        }
+
+        .wallet-stat-value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .wallet-stat-label {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-top: 3px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+            text-align: center;
+        }
+
+        .stat-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        /* Reputation Card */
+        .reputation-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+            margin-bottom: 20px;
+        }
+
+        .reputation-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .reputation-header h3 {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .reputation-level {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .reputation-level.alto {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .reputation-level.medio {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .reputation-level.baixo {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .reputation-bar {
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .reputation-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary) 0%, #059669 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .reputation-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Badges Section */
+        .badges-section {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+            margin-bottom: 20px;
+        }
+
+        .badges-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badges-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .badge-item {
+            text-align: center;
+            padding: 10px 5px;
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+        }
+
+        .badge-item.earned {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        }
+
+        .badge-item.locked {
+            opacity: 0.4;
+            filter: grayscale(100%);
+        }
+
+        .badge-icon {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .badge-name {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Actions */
+        .actions-section {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .action-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: background 0.2s ease;
+        }
+
+        .action-item:last-child {
+            border-bottom: none;
+        }
+
+        .action-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .action-item .material-symbols-outlined {
+            margin-right: 15px;
+            color: var(--primary);
+        }
+
+        .action-item span:last-child {
+            margin-left: auto;
+            color: var(--text-secondary);
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 11px;
+            padding: 5px 15px;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item .material-symbols-outlined {
+            font-size: 24px;
+            margin-bottom: 3px;
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Voltar
+        </a>
+
+        <!-- Login Section (shown when not logged in) -->
+        <div class="login-section" id="loginSection">
+            <h2>Entre na sua conta</h2>
+            <p>Digite seu nome para acessar sua carteira e conquistas</p>
+            <form class="login-form" id="loginForm">
+                <input type="text" id="usernameInput" placeholder="Seu nome de usuario" required>
+                <button type="submit">Entrar</button>
+            </form>
+        </div>
+
+        <!-- Profile Content (shown when logged in) -->
+        <div id="profileContent" class="hidden">
+            <!-- Profile Header -->
+            <div class="profile-header">
+                <div class="profile-avatar" id="profileAvatar">U</div>
+                <div class="profile-name" id="profileName">Usuario</div>
+                <div class="profile-level">
+                    <span class="material-symbols-outlined">verified</span>
+                    <span id="profileLevel">Contribuidor</span>
+                </div>
+            </div>
+
+            <!-- Wallet Card -->
+            <div class="wallet-card">
+                <div class="wallet-header">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                    Minha Carteira
+                </div>
+                <div class="wallet-balance" id="walletBalance">0.0</div>
+                <div class="wallet-label">PrecoCoins</div>
+                <div class="wallet-stats">
+                    <div class="wallet-stat">
+                        <div class="wallet-stat-value" id="totalMinerado">0</div>
+                        <div class="wallet-stat-label">Total Minerado</div>
+                    </div>
+                    <div class="wallet-stat">
+                        <div class="wallet-stat-value" id="totalGasto">0</div>
+                        <div class="wallet-stat-label">Total Gasto</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📝</div>
+                    <div class="stat-value" id="totalContribuicoes">0</div>
+                    <div class="stat-label">Contribuicoes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-value" id="totalValidacoes">0</div>
+                    <div class="stat-label">Validacoes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🏆</div>
+                    <div class="stat-value" id="posicaoRanking">--</div>
+                    <div class="stat-label">Posicao Ranking</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📅</div>
+                    <div class="stat-value" id="diasAtivo">0</div>
+                    <div class="stat-label">Dias Ativo</div>
+                </div>
+            </div>
+
+            <!-- Reputation Card -->
+            <div class="reputation-card">
+                <div class="reputation-header">
+                    <h3>
+                        <span class="material-symbols-outlined">verified</span>
+                        Reputacao
+                    </h3>
+                    <span class="reputation-level medio" id="reputacaoLevel">Medio</span>
+                </div>
+                <div class="reputation-bar">
+                    <div class="reputation-fill" id="reputacaoBar" style="width: 50%"></div>
+                </div>
+                <div class="reputation-text" id="reputacaoText">
+                    50/200 pontos - Continue contribuindo para aumentar sua reputacao!
+                </div>
+            </div>
+
+            <!-- Badges -->
+            <div class="badges-section">
+                <h3>
+                    <span class="material-symbols-outlined">military_tech</span>
+                    Minhas Conquistas
+                </h3>
+                <div class="badges-grid" id="badgesGrid">
+                    <!-- Badges will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="actions-section">
+                <a href="/frontend/contribuir.html" class="action-item">
+                    <span class="material-symbols-outlined">add_circle</span>
+                    Contribuir Preco
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </a>
+                <a href="/frontend/foto.html" class="action-item">
+                    <span class="material-symbols-outlined">photo_camera</span>
+                    Escanear Nota Fiscal
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </a>
+                <a href="/frontend/ranking.html" class="action-item">
+                    <span class="material-symbols-outlined">leaderboard</span>
+                    Ver Ranking
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </a>
+                <a href="#" class="action-item" onclick="logout(); return false;">
+                    <span class="material-symbols-outlined">logout</span>
+                    Sair
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="/" class="nav-item">
+            <span class="material-symbols-outlined">search</span>
+            Buscar
+        </a>
+        <a href="/frontend/contribuir.html" class="nav-item">
+            <span class="material-symbols-outlined">add_circle</span>
+            Contribuir
+        </a>
+        <a href="/frontend/ranking.html" class="nav-item">
+            <span class="material-symbols-outlined">emoji_events</span>
+            Ranking
+        </a>
+        <a href="/frontend/perfil.html" class="nav-item active">
+            <span class="material-symbols-outlined">person</span>
+            Perfil
+        </a>
+    </nav>
+
+    <script>
+        // Badge definitions
+        const BADGES = [
+            { id: 'primeiro_preco', icon: '🎯', name: 'Primeiro', check: (u) => u.total_contribuicoes >= 1 },
+            { id: 'contribuidor_10', icon: '⭐', name: '10 Precos', check: (u) => u.total_contribuicoes >= 10 },
+            { id: 'contribuidor_50', icon: '🌟', name: '50 Precos', check: (u) => u.total_contribuicoes >= 50 },
+            { id: 'contribuidor_100', icon: '💫', name: '100 Precos', check: (u) => u.total_contribuicoes >= 100 },
+            { id: 'minerador_100', icon: '💰', name: '100 Tokens', check: (u) => u.total_minerado >= 100 },
+            { id: 'minerador_500', icon: '💎', name: '500 Tokens', check: (u) => u.total_minerado >= 500 },
+            { id: 'validador', icon: '✅', name: 'Validador', check: (u) => u.total_validacoes >= 10 },
+            { id: 'reputacao_alta', icon: '🏆', name: 'Rep. Alta', check: (u) => u.reputacao >= 100 },
+        ];
+
+        let currentUser = localStorage.getItem('usuario_nome');
+
+        // Check if logged in
+        function checkLogin() {
+            if (currentUser) {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('profileContent').classList.remove('hidden');
+                loadProfile();
+            } else {
+                document.getElementById('loginSection').classList.remove('hidden');
+                document.getElementById('profileContent').classList.add('hidden');
+            }
+        }
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('usernameInput').value.trim();
+
+            if (username) {
+                currentUser = username;
+                localStorage.setItem('usuario_nome', username);
+
+                // Create wallet if doesn't exist
+                try {
+                    await fetch(`/api/carteira/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ usuario_nome: username })
+                    });
+                } catch (e) {
+                    console.log('Login request:', e);
+                }
+
+                checkLogin();
+            }
+        });
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('usuario_nome');
+            currentUser = null;
+            checkLogin();
+        }
+
+        // Load profile data
+        async function loadProfile() {
+            if (!currentUser) return;
+
+            // Update avatar and name
+            document.getElementById('profileAvatar').textContent = currentUser[0].toUpperCase();
+            document.getElementById('profileName').textContent = currentUser;
+
+            try {
+                // Load wallet data
+                const walletResponse = await fetch(`/api/carteira/${currentUser}`);
+                if (walletResponse.ok) {
+                    const wallet = await walletResponse.json();
+
+                    document.getElementById('walletBalance').textContent = (wallet.saldo || 0).toFixed(1);
+                    document.getElementById('totalMinerado').textContent = Math.round(wallet.total_minerado || 0);
+                    document.getElementById('totalGasto').textContent = Math.round(wallet.total_gasto || 0);
+
+                    // Update stats
+                    document.getElementById('totalContribuicoes').textContent = wallet.total_transacoes || 0;
+
+                    // Calculate badges
+                    const userData = {
+                        total_contribuicoes: wallet.total_transacoes || 0,
+                        total_minerado: wallet.total_minerado || 0,
+                        total_validacoes: wallet.validacoes_corretas || 0,
+                        reputacao: wallet.reputacao || 50
+                    };
+
+                    renderBadges(userData);
+                    updateReputation(wallet.reputacao || 50);
+
+                    // Update level based on reputation
+                    const rep = wallet.reputacao || 50;
+                    let level = 'Iniciante';
+                    if (rep >= 150) level = 'Expert';
+                    else if (rep >= 100) level = 'Avancado';
+                    else if (rep >= 50) level = 'Contribuidor';
+
+                    document.getElementById('profileLevel').textContent = level;
+                }
+
+                // Load ranking position
+                const rankingResponse = await fetch('/api/ranking-mineradores?limite=50');
+                if (rankingResponse.ok) {
+                    const rankingData = await rankingResponse.json();
+                    const ranking = rankingData.ranking || [];
+                    const position = ranking.findIndex(u => u.usuario === currentUser) + 1;
+                    document.getElementById('posicaoRanking').textContent = position > 0 ? `#${position}` : '--';
+                }
+
+            } catch (error) {
+                console.error('Erro ao carregar perfil:', error);
+            }
+        }
+
+        function updateReputation(rep) {
+            const percent = Math.min(100, (rep / 200) * 100);
+            document.getElementById('reputacaoBar').style.width = `${percent}%`;
+
+            let level = 'Baixo';
+            let levelClass = 'baixo';
+            if (rep >= 100) {
+                level = 'Alto';
+                levelClass = 'alto';
+            } else if (rep >= 50) {
+                level = 'Medio';
+                levelClass = 'medio';
+            }
+
+            const levelEl = document.getElementById('reputacaoLevel');
+            levelEl.textContent = level;
+            levelEl.className = `reputation-level ${levelClass}`;
+
+            document.getElementById('reputacaoText').textContent =
+                `${rep}/200 pontos - Continue contribuindo para aumentar sua reputacao!`;
+        }
+
+        function renderBadges(userData) {
+            const grid = document.getElementById('badgesGrid');
+            let html = '';
+
+            BADGES.forEach(badge => {
+                const earned = badge.check(userData);
+                html += `
+                    <div class="badge-item ${earned ? 'earned' : 'locked'}">
+                        <div class="badge-icon">${badge.icon}</div>
+                        <div class="badge-name">${badge.name}</div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', checkLogin);
+    </script>
+</body>
+</html>
