@@ -39,6 +39,7 @@ from app.scrapers.scraper_tempo_real import scraper_tempo_real
 from app.scrapers.buscar_precos_reais import buscar_precos_reais
 from app.scrapers.buscar_precos_locais import buscar_precos_proximos  # Supermercados locais
 from app.scrapers.buscar_contribuicoes_locais import buscar_contribuicoes_locais  # Contribuicoes da comunidade
+from app.scrapers.buscar_tempo_real import buscar_precos_tempo_real  # Busca em tempo real na internet
 from app.utils.comparador import Comparador
 from app.utils.geolocalizacao import (
     GeoLocalizacao, AnalisadorCustoBeneficio, ranquear_precos_por_custo_beneficio
@@ -262,33 +263,44 @@ async def buscar_produtos(
             print(f"   [WARN] Erro ao buscar supermercados fisicos: {e}")
 
     # ============================================================
-    # PASSO 4: LOJAS ONLINE COMO FALLBACK (APENAS SE POUCOS RESULTADOS)
-    # So buscar na internet se tiver menos de 5 resultados locais
+    # PASSO 4: BUSCA EM TEMPO REAL NA INTERNET
+    # Busca precos atualizados em multiplas fontes online
     # ============================================================
-    precos_reais_count = 0
-    if len(produtos_encontrados) < 5:
-        try:
-            print(f"\n[WEB] Poucos resultados locais ({len(produtos_encontrados)}), buscando na internet...")
-            precos_reais = buscar_precos_reais(request.termo, limite=15)
+    precos_tempo_real_count = 0
+    try:
+        # Determinar cidade para busca
+        cidade = "Goiania"  # Padrao
+        if request.latitude and request.longitude:
+            # Podemos melhorar isso com geocoding reverso no futuro
+            pass
 
-            for item in precos_reais:
-                item['fonte'] = 'loja_online'
+        print(f"\n[TEMPO REAL] Buscando precos atualizados na internet...")
+        precos_tempo_real = buscar_precos_tempo_real(request.termo, cidade=cidade, limite=15)
+
+        for item in precos_tempo_real:
+            # Evitar duplicatas
+            duplicado = False
+            for existente in produtos_encontrados:
+                if (abs(existente.get('preco', 0) - item.get('preco', 0)) < 0.5 and
+                    existente.get('supermercado', '').lower() == item.get('supermercado', '').lower()):
+                    duplicado = True
+                    break
+
+            if not duplicado:
+                item['fonte'] = 'tempo_real'
                 item['data_coleta'] = datetime.now().isoformat()
                 item['produto_real'] = True
                 item['latitude'] = None
                 item['longitude'] = None
                 item['endereco'] = None
-                item['marca'] = item.get('marca')
-                item['is_online'] = True  # Marcar como loja online
+                item['is_online'] = True
                 produtos_encontrados.append(item)
-                precos_reais_count += 1
+                precos_tempo_real_count += 1
 
-            print(f"   [OK] {precos_reais_count} precos de lojas ONLINE (fallback)")
+        print(f"   [OK] {precos_tempo_real_count} precos em TEMPO REAL encontrados")
 
-        except Exception as e:
-            print(f"   [WARN] Erro ao buscar lojas online: {e}")
-    else:
-        print(f"\n[WEB] Pulando busca online - ja temos {len(produtos_encontrados)} resultados locais!")
+    except Exception as e:
+        print(f"   [WARN] Erro ao buscar precos tempo real: {e}")
 
     print(f"\n[TOTAL] Total de precos encontrados: {len(produtos_encontrados)}")
 
@@ -344,6 +356,9 @@ async def buscar_produtos(
         # Se não houver produtos suficientes, adicionar sem localização também
         if len(produtos_encontrados) < 5 and produtos_sem_localizacao:
             produtos_encontrados.extend(produtos_sem_localizacao[:10 - len(produtos_encontrados)])
+    else:
+        # Sem geolocalizacao: ordenar por preco (menor primeiro) - v2
+        produtos_encontrados.sort(key=lambda x: x.get('preco', float('inf')))
 
     resposta = {
         "termo": request.termo,

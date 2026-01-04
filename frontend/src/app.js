@@ -1,5 +1,5 @@
-// API Configuration
-const API_URL = 'http://localhost:8000';
+// API Configuration - usa a mesma origem da pagina (funciona com localhost e tunnel)
+const API_URL = window.location.origin;
 
 let selectedMarkets = [];
 let deferredPrompt;
