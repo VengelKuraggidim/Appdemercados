@@ -304,32 +304,32 @@ async def buscar_produtos(
 
     print(f"\n[TOTAL] Total de precos encontrados: {len(produtos_encontrados)}")
 
-    # Filtrar e ordenar por proximidade se localização fornecida
+    # FILTRAR produtos sem preço válido (preço = 0 ou None)
+    produtos_encontrados = [
+        p for p in produtos_encontrados
+        if p.get('preco') and p.get('preco', 0) > 0
+    ]
+
+    print(f"   [FILTRO] {len(produtos_encontrados)} produtos com preco valido")
+
+    # Ordenar por CUSTO-BENEFICIO (preco + distancia) se localização fornecida
     if request.latitude is not None and request.longitude is not None:
-        from app.utils.geolocalizacao import GeoLocalizacao
+        from app.utils.geolocalizacao import GeoLocalizacao, AnalisadorCustoBeneficio
 
         geo = GeoLocalizacao()
-        distancia_maxima = request.distancia_maxima_km or 5.0  # Padrão 5km (supermercados próximos)
+        analisador = AnalisadorCustoBeneficio(tipo_transporte="carro", considerar_tempo=False)
+        distancia_maxima = request.distancia_maxima_km or 15.0  # 15km padrão
 
-        # Separar produtos da internet real (sempre incluir) dos locais
-        produtos_internet_real = []
-        produtos_com_distancia = []
+        # Separar produtos com e sem localização
+        produtos_com_localizacao = []
         produtos_sem_localizacao = []
 
         for produto in produtos_encontrados:
-            # Produtos da internet real SEMPRE são incluídos (não têm localização mas são reais)
-            if produto.get('fonte') == 'internet_real':
-                produto['distancia_km'] = None
-                produtos_internet_real.append(produto)
-            # Produtos de supermercados locais já vêm com distância calculada
-            elif produto.get('fonte') == 'supermercado_local':
-                # Já tem distância do buscador local
-                if produto.get('distancia_km') is not None:
-                    if produto['distancia_km'] <= distancia_maxima:
-                        produtos_com_distancia.append(produto)
-                else:
-                    produtos_sem_localizacao.append(produto)
-            elif produto.get('latitude') and produto.get('longitude'):
+            preco = produto.get('preco', 0) or 0
+
+            # Verificar se tem coordenadas
+            if produto.get('latitude') and produto.get('longitude'):
+                # Calcular distância
                 distancia = geo.calcular_distancia(
                     request.latitude,
                     request.longitude,
@@ -338,35 +338,45 @@ async def buscar_produtos(
                 )
                 produto['distancia_km'] = round(distancia, 2)
 
-                # Apenas adicionar se estiver dentro da distância máxima
+                # Calcular custo do deslocamento (ida e volta)
+                custo_desloc = analisador.calcular_custo_deslocamento(distancia)
+                produto['custo_deslocamento'] = round(custo_desloc['custo_total'], 2)
+
+                # CUSTO TOTAL REAL = preço + custo deslocamento
+                produto['custo_total_real'] = round(preco + custo_desloc['custo_total'], 2)
+
+                # Apenas incluir se dentro da distância máxima
                 if distancia <= distancia_maxima:
-                    produtos_com_distancia.append(produto)
+                    produtos_com_localizacao.append(produto)
             else:
-                # Produtos sem localização (para mostrar depois se necessário)
+                # Produtos sem localização (online, contribuições sem GPS)
                 produto['distancia_km'] = None
+                produto['custo_deslocamento'] = 0
+                produto['custo_total_real'] = preco
                 produtos_sem_localizacao.append(produto)
 
-        # Ordenar por distância (mais próximos primeiro)
-        produtos_com_distancia.sort(key=lambda x: x['distancia_km'])
+        # ORDENAR POR CUSTO-BENEFICIO (custo total real = preco + deslocamento)
+        produtos_com_localizacao.sort(key=lambda x: x.get('custo_total_real', float('inf')))
+        produtos_sem_localizacao.sort(key=lambda x: x.get('preco', float('inf')))
 
-        # PRIORIZAR: 1) Produtos reais da internet, 2) Produtos próximos, 3) Sem localização
-        # Produtos da internet real SEMPRE aparecem primeiro!
-        produtos_encontrados = produtos_internet_real + produtos_com_distancia
+        # Combinar: primeiro os com localização (ordenados por custo-benefício)
+        # depois os sem localização (ordenados por preço)
+        produtos_encontrados = produtos_com_localizacao + produtos_sem_localizacao
 
-        # Se não houver produtos suficientes, adicionar sem localização também
-        if len(produtos_encontrados) < 5 and produtos_sem_localizacao:
-            produtos_encontrados.extend(produtos_sem_localizacao[:10 - len(produtos_encontrados)])
+        # Marcar melhor opção
+        if produtos_encontrados:
+            produtos_encontrados[0]['melhor_opcao'] = True
     else:
-        # Sem geolocalizacao: ordenar por preco (menor primeiro) - v2
+        # Sem geolocalizacao: ordenar por preco (menor primeiro)
         produtos_encontrados.sort(key=lambda x: x.get('preco', float('inf')))
 
     resposta = {
         "termo": request.termo,
         "total": len(produtos_encontrados),
         "produtos": produtos_encontrados,
-        "ordenado_por_proximidade": request.latitude is not None and request.longitude is not None,
+        "ordenado_por": "custo_beneficio" if (request.latitude is not None and request.longitude is not None) else "preco",
         "distancia_maxima_km": request.distancia_maxima_km if request.latitude is not None else None,
-        "filtrado_por_distancia": request.latitude is not None and len(produtos_encontrados) > 0
+        "tem_geolocalizacao": request.latitude is not None and request.longitude is not None
     }
 
     if not produtos_encontrados:
