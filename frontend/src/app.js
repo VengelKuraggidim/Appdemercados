@@ -234,6 +234,7 @@ function exibirResultados(produtos, comGeolocalizacao = false) {
 
         // Informações de geolocalização - mostrar distância simples se não for busca otimizada
         let geoInfo = '';
+        let analiseBadge = '';
 
         // Se tem distância mas não é busca otimizada, mostrar apenas a distância
         if (!comGeolocalizacao && produtoTemDistancia && produto.distancia_km !== null) {
@@ -283,48 +284,36 @@ function exibirResultados(produtos, comGeolocalizacao = false) {
             // ID único para o toggle
             const toggleId = `analise-${index}`;
 
+            // Badge discreto para ver análise (será adicionado junto com promoTag/bestPriceTag)
+            analiseBadge = `<span class="analise-badge" onclick="toggleAnalise('${toggleId}', this)" title="Ver análise de custo-benefício">ℹ️ ${produto.distancia_km.toFixed(1)}km</span>`;
+
+            // Painel de análise (fica oculto até clicar no badge)
             geoInfo = `
-                <div class="custo-beneficio-container">
-                    <button class="btn-ver-analise" onclick="toggleAnalise('${toggleId}', this)">
-                        📊 Ver análise de custo-benefício
-                    </button>
-
-                    <div id="${toggleId}" class="economia-info" style="display: none;">
-                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                            <strong style="font-size: 13px;">💰 Análise de Custo-Benefício</strong>
-                            <div class="info-tooltip">
-                                i
-                                <div class="tooltip-content">
-                                    Cálculo considera: preço + distância (ida/volta) + tempo
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="economia-detalhes">
-                            <div class="economia-linha">
-                                <span>📍 Distância:</span>
-                                <strong>${produto.distancia_km.toFixed(1)} km</strong>
-                            </div>
-                            <div class="economia-linha">
-                                <span>⏱️ Tempo estimado:</span>
-                                <strong>${tempoMinutos.toFixed(0)} min</strong>
-                            </div>
-                            <div class="economia-linha">
-                                <span>🚗 Combustível/Transporte:</span>
-                                <strong>R$ ${custoTransporte.toFixed(2)}</strong>
-                            </div>
-                            <div class="economia-linha">
-                                <span>⌚ Custo do tempo:</span>
-                                <strong>R$ ${custoTempo.toFixed(2)}</strong>
-                            </div>
-                            <div class="economia-linha economia-total">
-                                <span>💵 Custo Real Total:</span>
-                                <strong style="font-size: 15px;">R$ ${produto.custo_total_real.toFixed(2)}</strong>
-                            </div>
-                        </div>
-
-                        ${analiseEconomia}
+                <div id="${toggleId}" class="economia-info" style="display: none;">
+                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                        <strong style="font-size: 13px;">💰 Análise de Custo-Benefício</strong>
                     </div>
+
+                    <div class="economia-detalhes">
+                        <div class="economia-linha">
+                            <span>📍 Distância:</span>
+                            <strong>${produto.distancia_km.toFixed(1)} km</strong>
+                        </div>
+                        <div class="economia-linha">
+                            <span>⏱️ Tempo estimado:</span>
+                            <strong>${tempoMinutos.toFixed(0)} min</strong>
+                        </div>
+                        <div class="economia-linha">
+                            <span>🚗 Combustível (ida/volta):</span>
+                            <strong>R$ ${custoTransporte.toFixed(2)}</strong>
+                        </div>
+                        <div class="economia-linha economia-total">
+                            <span>💵 Custo Real Total:</span>
+                            <strong style="font-size: 15px;">R$ ${produto.custo_total_real.toFixed(2)}</strong>
+                        </div>
+                    </div>
+
+                    ${analiseEconomia}
                 </div>
             `;
         }
@@ -335,8 +324,11 @@ function exibirResultados(produtos, comGeolocalizacao = false) {
             <div class="product-details">
                 <div>
                     <div class="price">R$ ${produto.preco.toFixed(2)}</div>
-                    ${promoTag}
-                    ${bestPriceTag}
+                    <div class="badges-container">
+                        ${promoTag}
+                        ${bestPriceTag}
+                        ${analiseBadge}
+                    </div>
                 </div>
                 <div>
                     <span class="supermarket-badge">${getSupermarketName(produto.supermercado)}</span>
@@ -601,14 +593,12 @@ function toggleGeoOptimization(enabled) {
 }
 
 // Toggle para mostrar/ocultar análise de custo-benefício
-function toggleAnalise(id, button) {
+function toggleAnalise(id, badge) {
     const elemento = document.getElementById(id);
     if (elemento) {
         const isVisible = elemento.style.display !== 'none';
         elemento.style.display = isVisible ? 'none' : 'block';
-        button.textContent = isVisible
-            ? '📊 Ver análise de custo-benefício'
-            : '📊 Ocultar análise';
+        badge.classList.toggle('active', !isVisible);
     }
 }
 

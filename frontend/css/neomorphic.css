@@ -2205,34 +2205,37 @@ body {
 }
 
 /* ============================================
-   BOTAO ANALISE CUSTO-BENEFICIO
+   ANALISE CUSTO-BENEFICIO
    ============================================ */
 
-.custo-beneficio-container {
-    margin-top: 12px;
+.badges-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
 }
 
-.btn-ver-analise {
-    width: 100%;
-    padding: 10px 16px;
-    background: linear-gradient(135deg, var(--emerald-500), var(--teal-500));
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+.analise-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    background: #e3f2fd;
+    color: #1976d2;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    transition: all 0.2s ease;
+    border: 1px solid #bbdefb;
 }
 
-.btn-ver-analise:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+.analise-badge:hover {
+    background: #bbdefb;
+    transform: scale(1.05);
 }
 
-.btn-ver-analise:active {
-    transform: translateY(0);
+.analise-badge.active {
+    background: #1976d2;
+    color: white;
 }
 
 .economia-info {
