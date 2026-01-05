@@ -96,6 +96,7 @@ class Carteira(Base):
 
     data_criacao = Column(DateTime, default=datetime.now)
     ultima_atualizacao = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    ultima_atividade = Column(DateTime, default=datetime.now)  # Última ação do usuário (para status "soneca")
 
     transacoes = relationship("Transacao", back_populates="carteira")
 

@@ -294,16 +294,77 @@ class CryptoManager:
                 "mensagem": "Senha incorreta"
             }
 
+        # Verificar se usuário estava em "soneca" (inativo 24h+)
+        estava_soneca = not self.esta_ativo(carteira, horas_inatividade=24)
+
         return {
             "sucesso": True,
             "mensagem": "Login realizado com sucesso!",
             "usuario_nome": carteira.usuario_nome,
-            "saldo": carteira.saldo
+            "saldo": carteira.saldo,
+            "estava_soneca": estava_soneca
         }
 
     def _hash_senha(self, senha: str) -> str:
         """Hash simples de senha (em produção usar bcrypt)"""
         return hashlib.sha256(senha.encode()).hexdigest()
+
+    def registrar_atividade(self, usuario_nome: str) -> bool:
+        """Atualiza o timestamp de ultima_atividade do usuário.
+
+        Usuários inativos por 24h+ são considerados 'soneca' e não contam
+        para o threshold de votação.
+        """
+        carteira = self.db.query(Carteira).filter(
+            Carteira.usuario_nome == usuario_nome
+        ).first()
+
+        if carteira:
+            carteira.ultima_atividade = datetime.now()
+            return True
+        return False
+
+    @staticmethod
+    def esta_ativo(carteira: Carteira, horas_inatividade: int = 24) -> bool:
+        """Verifica se o usuário está ativo (não está em 'soneca').
+
+        Args:
+            carteira: Objeto Carteira do usuário
+            horas_inatividade: Horas sem atividade para considerar inativo (default: 24)
+
+        Returns:
+            True se o usuário está ativo, False se está em 'soneca'
+        """
+        from datetime import timedelta
+
+        if not carteira.ultima_atividade:
+            return False
+
+        limite = datetime.now() - timedelta(hours=horas_inatividade)
+        return carteira.ultima_atividade >= limite
+
+    def contar_usuarios_ativos(self, excluir_usuario: str = None, horas_inatividade: int = 24) -> int:
+        """Conta quantos usuários estão ativos (não estão em 'soneca').
+
+        Args:
+            excluir_usuario: Nome do usuário a excluir da contagem (ex: criador da sugestão)
+            horas_inatividade: Horas sem atividade para considerar inativo (default: 24)
+
+        Returns:
+            Número de usuários ativos
+        """
+        from datetime import timedelta
+
+        limite = datetime.now() - timedelta(hours=horas_inatividade)
+
+        query = self.db.query(Carteira).filter(
+            Carteira.ultima_atividade >= limite
+        )
+
+        if excluir_usuario:
+            query = query.filter(Carteira.usuario_nome != excluir_usuario)
+
+        return query.count()
 
     def minerar_tokens(self, usuario_nome: str, preco_id: int = None, quantidade: float = None, descricao: str = None) -> dict:
         """Recompensa usuário por contribuir com preço ou libera tokens do escrow"""

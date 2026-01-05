@@ -3,24 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner de Nota Fiscal - Comparador de Preços</title>
+    <title>Scanner - Comparador de Preços</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#10b981">
     <link rel="apple-touch-icon" href="/icon-192.png">
-
-    <!-- Neomorphic Design System CSS -->
     <link rel="stylesheet" href="/css/neomorphic.css">
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+    <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
             padding: 20px;
             padding-bottom: 100px;
@@ -31,7 +28,7 @@
             margin: 0 auto;
         }
 
-        .header {
+        .page-header {
             background: var(--bg-card);
             padding: 20px;
             border-radius: var(--border-radius);
@@ -39,7 +36,7 @@
             box-shadow: var(--shadow-neo-out);
         }
 
-        .header h1 {
+        .page-header h1 {
             color: var(--text-primary);
             font-size: 22px;
             margin-bottom: 8px;
@@ -48,7 +45,7 @@
             gap: 10px;
         }
 
-        .header p {
+        .page-header p {
             color: var(--text-secondary);
             font-size: 14px;
         }
@@ -64,18 +61,160 @@
             font-weight: 500;
         }
 
-        .scanner-card {
+        /* === TABS DE OPÇÕES === */
+        .scanner-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
             background: var(--bg-card);
-            padding: 25px;
+            padding: 8px;
             border-radius: var(--border-radius);
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .scanner-tab {
+            flex: 1;
+            padding: 14px 12px;
+            border: none;
+            background: var(--bg-primary);
+            border-radius: var(--border-radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: var(--shadow-neo-in);
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .scanner-tab .material-symbols-outlined {
+            font-size: 28px;
+        }
+
+        .scanner-tab.active {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .scanner-tab:hover:not(.active) {
+            background: var(--bg-secondary);
+        }
+
+        /* === ÁREA DE CONTEÚDO === */
+        .scanner-content {
+            display: none;
+        }
+
+        .scanner-content.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 20px;
             margin-bottom: 20px;
             box-shadow: var(--shadow-neo-out);
         }
 
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .material-symbols-outlined {
+            color: var(--primary);
+        }
+
+        /* === MODO CÂMERA/UPLOAD === */
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: var(--bg-primary);
+            border-radius: var(--border-radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: var(--shadow-neo-in);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .mode-btn.active {
+            background: var(--primary-gradient);
+            color: white;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        /* === SCANNER CÂMERA === */
+        .scanner-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        #video {
+            width: 100%;
+            border-radius: var(--border-radius-sm);
+            background: #000;
+        }
+
+        #canvas { display: none; }
+
+        .scanner-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 100px;
+            border: 3px solid var(--primary);
+            border-radius: var(--border-radius-sm);
+            pointer-events: none;
+        }
+
+        .scanner-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            animation: scan 2s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+
+        /* === UPLOAD ÁREA === */
         .upload-area {
             border: 3px dashed var(--primary);
             border-radius: var(--border-radius);
-            padding: 40px;
+            padding: 40px 20px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s;
@@ -87,78 +226,196 @@
             background: var(--bg-secondary);
         }
 
-        .upload-area.dragging {
-            border-color: var(--success);
-            background: var(--success-light);
+        .upload-area .material-symbols-outlined {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 10px;
         }
 
-        .upload-icon {
-            font-size: 64px;
-            margin-bottom: 15px;
-        }
+        .upload-area input { display: none; }
 
         .upload-text {
-            color: #666;
-            margin-bottom: 15px;
+            color: var(--text-secondary);
         }
 
-        .file-input {
-            display: none;
+        .upload-text strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 5px;
         }
 
+        /* === BOTÕES === */
         .btn {
-            background: var(--primary-gradient);
-            color: white;
+            width: 100%;
+            padding: 16px;
             border: none;
-            padding: 14px 28px;
             border-radius: var(--border-radius-sm);
             font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
             font-weight: 600;
-            width: 100%;
+            cursor: pointer;
             margin-top: 15px;
+            box-shadow: var(--shadow-neo-out);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover { transform: translateY(-2px); }
+        .btn:active { transform: translateY(0); box-shadow: var(--shadow-neo-in); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-primary { background: var(--primary-gradient); color: white; }
+        .btn-secondary { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; }
+        .btn-stop { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; }
+        .btn-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
+
+        /* === RESULTADO === */
+        .resultado {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-top: 20px;
             box-shadow: var(--shadow-neo-out);
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
+        .produto-encontrado {
+            text-align: center;
         }
 
-        .btn:active {
-            transform: translateY(0);
+        .produto-encontrado img {
+            max-width: 150px;
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 15px;
+        }
+
+        .produto-encontrado h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .ean-display {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            color: var(--primary);
+            padding: 15px;
+            border-radius: var(--border-radius-sm);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            text-align: center;
+            margin: 15px 0;
+            letter-spacing: 2px;
+        }
+
+        .preco-lista {
+            margin-top: 15px;
+            text-align: left;
+        }
+
+        .preco-lista h4 {
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .preco-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: var(--bg-primary);
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 8px;
             box-shadow: var(--shadow-neo-in);
         }
 
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .preco-item span { color: var(--text-secondary); }
+        .preco-item strong { color: var(--primary); font-size: 18px; }
+
+        /* === NOTA FISCAL RESULTADO === */
+        .result-header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 20px;
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 20px;
         }
 
+        .result-header h2 {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .product-list {
+            background: var(--bg-primary);
+            border-radius: var(--border-radius-sm);
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .product-item {
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: var(--border-radius-sm);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-neo-out);
+        }
+
+        .product-item:last-child { margin-bottom: 0; }
+        .product-name { font-weight: 500; color: var(--text-primary); flex: 1; }
+        .product-price { font-weight: 600; color: var(--primary); font-size: 16px; }
+
+        .tokens-earned {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #1f2937;
+            padding: 15px;
+            border-radius: var(--border-radius-sm);
+            text-align: center;
+            margin-top: 15px;
+            font-weight: 600;
+        }
+
+        /* === PREVIEW === */
         .preview-section {
             margin-top: 20px;
-            display: none;
         }
 
         .preview-image {
             width: 100%;
-            border-radius: 8px;
+            border-radius: var(--border-radius-sm);
             margin-bottom: 15px;
         }
 
-        .loading {
-            display: none;
+        /* === STATUS E LOADING === */
+        .status {
             text-align: center;
-            padding: 20px;
+            padding: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-primary);
+            border-radius: var(--border-radius-sm);
+            margin-top: 15px;
+            box-shadow: var(--shadow-neo-in);
         }
 
-        .loading.show {
-            display: block;
+        .loading {
+            text-align: center;
+            padding: 30px;
         }
 
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary);
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -171,198 +428,209 @@
             100% { transform: rotate(360deg); }
         }
 
-        .result-section {
-            display: none;
-        }
+        .hidden { display: none !important; }
 
-        .result-section.show {
-            display: block;
-        }
-
-        .result-header {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .result-header h2 {
-            margin-bottom: 10px;
-        }
-
-        .result-stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            font-size: 14px;
-        }
-
-        .product-list {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
+        .not-found-icon {
+            font-size: 64px;
+            color: var(--text-muted);
             margin-bottom: 15px;
         }
 
-        .product-item {
-            background: white;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .product-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .product-name {
-            font-weight: 500;
-            color: #333;
-            flex: 1;
-        }
-
-        .product-price {
-            font-weight: 600;
-            color: #4CAF50;
-            font-size: 16px;
-        }
-
         .error-message {
-            background: #f44336;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
             padding: 15px;
-            border-radius: 8px;
+            border-radius: var(--border-radius-sm);
             margin-top: 15px;
-            display: none;
         }
 
-        .error-message.show {
-            display: block;
-        }
-
-        .success-badge {
-            background: #4CAF50;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            display: inline-block;
-        }
-
-        .warning-badge {
-            background: #FF9800;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            display: inline-block;
-        }
-
-        .tokens-earned {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #333;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
+        /* Login status */
+        .login-status {
             margin-top: 15px;
-            font-weight: 600;
+            padding: 12px;
+            border-radius: var(--border-radius-sm);
+        }
+
+        .login-status.logged-in {
+            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .login-status.logged-out {
+            background: rgba(239, 68, 68, 0.1);
+            border: 2px solid #ef4444;
+            color: #ef4444;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="/index.html" class="back-link">← Voltar</a>
+        <a href="/" class="back-link">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Voltar
+        </a>
 
-        <div class="header">
-            <h1>📸 Scanner de Nota Fiscal</h1>
-            <p>Tire uma foto da sua nota fiscal e ganhe tokens por cada produto extraído!</p>
+        <div class="page-header">
+            <h1>
+                <span class="material-symbols-outlined">document_scanner</span>
+                Scanner
+            </h1>
+            <p>Escolha como deseja enviar produtos para o app</p>
 
-            <!-- Login Status -->
-            <div id="loginStatus" style="margin-top: 15px; padding: 12px; border-radius: 8px; display: none;">
+            <div id="loginStatus" class="login-status" style="display: none;">
                 <span id="loginStatusText"></span>
             </div>
         </div>
 
-        <div class="scanner-card">
-            <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">📋</div>
-                <div class="upload-text">
-                    <strong>Clique aqui ou arraste a foto da nota fiscal</strong><br>
-                    <small>Formatos aceitos: JPG, PNG (máx. 10MB)</small>
+        <!-- TABS DE OPÇÕES -->
+        <div class="scanner-tabs">
+            <button class="scanner-tab active" onclick="setTab('barcode')" id="tabBarcode">
+                <span class="material-symbols-outlined">barcode_scanner</span>
+                Código de Barras
+            </button>
+            <button class="scanner-tab" onclick="setTab('receipt')" id="tabReceipt">
+                <span class="material-symbols-outlined">receipt_long</span>
+                Nota Fiscal
+            </button>
+            <button class="scanner-tab" onclick="setTab('photo')" id="tabPhoto">
+                <span class="material-symbols-outlined">photo_camera</span>
+                Foto Produto
+            </button>
+        </div>
+
+        <!-- ========== CONTEÚDO: CÓDIGO DE BARRAS ========== -->
+        <div id="contentBarcode" class="scanner-content active">
+            <div class="card">
+                <div class="card-title">
+                    <span class="material-symbols-outlined">barcode_scanner</span>
+                    Escanear Código de Barras
                 </div>
-                <input type="file" id="fileInput" class="file-input" accept="image/*" capture="environment">
-            </div>
 
-            <div class="preview-section" id="previewSection">
-                <h3>Preview:</h3>
-                <img id="previewImage" class="preview-image" alt="Preview">
-            </div>
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="setBarcodeMode('camera')" id="btnBarcodeCamera">
+                        <span class="material-symbols-outlined">videocam</span>
+                        Câmera
+                    </button>
+                    <button class="mode-btn" onclick="setBarcodeMode('upload')" id="btnBarcodeUpload">
+                        <span class="material-symbols-outlined">upload_file</span>
+                        Upload
+                    </button>
+                </div>
 
-            <button class="btn" id="scanBtn" disabled>📸 Escanear Nota Fiscal</button>
-            <a href="/debug-ocr.html" class="btn" style="background: linear-gradient(135deg, #FF9800 0%, #FF5722 100%); margin-top: 10px; display: inline-block; text-decoration: none; text-align: center;">🔧 Debug OCR (Corrigir Erros)</a>
-        </div>
+                <!-- Modo Câmera -->
+                <div id="barcodeCameraMode">
+                    <div class="scanner-container">
+                        <video id="video" autoplay playsinline></video>
+                        <canvas id="canvas"></canvas>
+                        <div class="scanner-overlay">
+                            <div class="scanner-line"></div>
+                        </div>
+                    </div>
+                    <p class="status" id="cameraStatus">Posicione o código de barras na área verde</p>
+                    <button class="btn btn-primary" id="btnStartCamera" onclick="startCamera()">
+                        <span class="material-symbols-outlined">videocam</span>
+                        Iniciar Câmera
+                    </button>
+                    <button class="btn btn-stop hidden" id="btnStopCamera" onclick="stopCamera()">
+                        <span class="material-symbols-outlined">stop</span>
+                        Parar Câmera
+                    </button>
+                </div>
 
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Processando nota fiscal...</p>
-        </div>
-
-        <div class="result-section" id="resultSection">
-            <div class="result-header">
-                <h2>✅ Nota Fiscal Processada!</h2>
-                <div class="result-stats">
-                    <div>🏪 <span id="resultSupermarket"></span></div>
-                    <div>📦 <span id="resultTotal"></span> produtos</div>
-                    <div>📅 <span id="resultDate"></span></div>
-                    <div>💰 Total: R$ <span id="resultValue"></span></div>
+                <!-- Modo Upload -->
+                <div id="barcodeUploadMode" class="hidden">
+                    <div class="upload-area" onclick="document.getElementById('barcodeFileInput').click()">
+                        <span class="material-symbols-outlined">barcode</span>
+                        <div class="upload-text">
+                            <strong>Clique ou arraste uma foto</strong>
+                            do código de barras
+                        </div>
+                        <input type="file" id="barcodeFileInput" accept="image/*" onchange="handleBarcodeUpload(event)">
+                    </div>
                 </div>
             </div>
 
-            <h3 style="margin-bottom: 15px;">Produtos Extraídos:</h3>
-            <div class="product-list" id="productList"></div>
-
-            <div id="tokensEarned" class="tokens-earned" style="display: none;">
-                💎 Você ganhou <span id="tokensAmount"></span> tokens!
-            </div>
-
-            <button class="btn" onclick="escanearOutraNota()">📸 Escanear Outra Nota</button>
+            <div id="barcodeResult" class="hidden"></div>
         </div>
 
-        <div class="error-message" id="errorMessage"></div>
+        <!-- ========== CONTEÚDO: NOTA FISCAL ========== -->
+        <div id="contentReceipt" class="scanner-content">
+            <div class="card">
+                <div class="card-title">
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    Enviar Nota Fiscal
+                </div>
+
+                <div class="upload-area" onclick="document.getElementById('receiptFileInput').click()">
+                    <span class="material-symbols-outlined">receipt</span>
+                    <div class="upload-text">
+                        <strong>Clique ou arraste a foto da nota fiscal</strong>
+                        Formatos aceitos: JPG, PNG (máx. 10MB)
+                    </div>
+                    <input type="file" id="receiptFileInput" accept="image/*" capture="environment" onchange="handleReceiptUpload(event)">
+                </div>
+
+                <div id="receiptPreview" class="preview-section hidden">
+                    <h4>Preview:</h4>
+                    <img id="receiptPreviewImage" class="preview-image" alt="Preview">
+                </div>
+
+                <button class="btn btn-primary" id="btnScanReceipt" disabled onclick="processReceipt()">
+                    <span class="material-symbols-outlined">document_scanner</span>
+                    Processar Nota Fiscal
+                </button>
+
+                <a href="/debug-ocr.html" class="btn btn-warning" style="text-decoration: none; text-align: center;">
+                    <span class="material-symbols-outlined">build</span>
+                    Debug OCR (Corrigir Erros)
+                </a>
+            </div>
+
+            <div id="receiptLoading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Processando nota fiscal...</p>
+            </div>
+
+            <div id="receiptResult" class="hidden"></div>
+        </div>
+
+        <!-- ========== CONTEÚDO: FOTO PRODUTO ========== -->
+        <div id="contentPhoto" class="scanner-content">
+            <div class="card">
+                <div class="card-title">
+                    <span class="material-symbols-outlined">photo_camera</span>
+                    Enviar Foto do Produto
+                </div>
+
+                <div class="upload-area" onclick="document.getElementById('photoFileInput').click()">
+                    <span class="material-symbols-outlined">add_a_photo</span>
+                    <div class="upload-text">
+                        <strong>Clique ou arraste uma foto do produto</strong>
+                        Tire uma foto mostrando o nome e preço
+                    </div>
+                    <input type="file" id="photoFileInput" accept="image/*" capture="environment" onchange="handlePhotoUpload(event)">
+                </div>
+
+                <div id="photoPreview" class="preview-section hidden">
+                    <h4>Preview:</h4>
+                    <img id="photoPreviewImage" class="preview-image" alt="Preview">
+                </div>
+
+                <button class="btn btn-primary" id="btnAnalyzePhoto" disabled onclick="analyzePhoto()">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                    Analisar Foto
+                </button>
+            </div>
+
+            <div id="photoLoading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Analisando imagem...</p>
+            </div>
+
+            <div id="photoResult" class="hidden"></div>
+        </div>
     </div>
-
-    <script src="/src/scanner.js?v=5"></script>
-    <script>
-        // Verificar status de login ao carregar página
-        window.addEventListener('DOMContentLoaded', () => {
-            const usuarioLogado = localStorage.getItem('usuario_nome');
-            const loginStatus = document.getElementById('loginStatus');
-            const loginStatusText = document.getElementById('loginStatusText');
-
-            if (!usuarioLogado || usuarioLogado === 'null' || usuarioLogado === '') {
-                loginStatus.style.display = 'block';
-                loginStatus.style.background = '#ffebee';
-                loginStatus.style.border = '2px solid #f44336';
-                loginStatusText.innerHTML = '⚠️ <strong>Você não está logado!</strong> <a href="/index.html" style="color: #f44336; text-decoration: underline;">Clique aqui para fazer login</a>';
-            } else {
-                loginStatus.style.display = 'block';
-                loginStatus.style.background = '#e8f5e9';
-                loginStatus.style.border = '2px solid #4CAF50';
-                loginStatusText.innerHTML = `✅ Logado como: <strong>${usuarioLogado}</strong>`;
-            }
-        });
-
-        // Dark Mode
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        }
-        initTheme();
-    </script>
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
@@ -388,5 +656,540 @@
             <span class="nav-item-label">Perfil</span>
         </a>
     </nav>
+
+    <script>
+        // Initialize theme
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        }
+        initTheme();
+
+        const API_URL = 'http://localhost:8000';
+        let video, canvas, ctx;
+        let scanning = false;
+        let stream = null;
+        let codeReader = null;
+        let currentReceiptFile = null;
+        let currentPhotoFile = null;
+
+        // ========== INICIALIZAÇÃO ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+
+            // Inicializar ZXing
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                ZXing.BarcodeFormat.EAN_13,
+                ZXing.BarcodeFormat.EAN_8,
+                ZXing.BarcodeFormat.UPC_A,
+                ZXing.BarcodeFormat.UPC_E,
+                ZXing.BarcodeFormat.CODE_128,
+                ZXing.BarcodeFormat.CODE_39,
+                ZXing.BarcodeFormat.ITF,
+                ZXing.BarcodeFormat.QR_CODE
+            ]);
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+            codeReader = new ZXing.BrowserMultiFormatReader(hints);
+
+            // Verificar login
+            checkLoginStatus();
+        });
+
+        function checkLoginStatus() {
+            const usuarioLogado = localStorage.getItem('usuario_nome');
+            const loginStatus = document.getElementById('loginStatus');
+            const loginStatusText = document.getElementById('loginStatusText');
+
+            if (!usuarioLogado || usuarioLogado === 'null' || usuarioLogado === '') {
+                loginStatus.style.display = 'block';
+                loginStatus.className = 'login-status logged-out';
+                loginStatusText.innerHTML = '⚠️ <strong>Você não está logado!</strong> <a href="/" style="color: inherit;">Clique para fazer login</a>';
+            } else {
+                loginStatus.style.display = 'block';
+                loginStatus.className = 'login-status logged-in';
+                loginStatusText.innerHTML = `✅ Logado como: <strong>${usuarioLogado}</strong>`;
+            }
+        }
+
+        // ========== NAVEGAÇÃO TABS ==========
+        function setTab(tab) {
+            // Parar câmera se estiver ativa
+            stopCamera();
+
+            // Atualizar tabs
+            document.querySelectorAll('.scanner-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+
+            // Atualizar conteúdo
+            document.querySelectorAll('.scanner-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`content${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+        }
+
+        // ========== CÓDIGO DE BARRAS ==========
+        function setBarcodeMode(mode) {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btnBarcode${mode === 'camera' ? 'Camera' : 'Upload'}`).classList.add('active');
+
+            document.getElementById('barcodeCameraMode').classList.toggle('hidden', mode !== 'camera');
+            document.getElementById('barcodeUploadMode').classList.toggle('hidden', mode !== 'upload');
+
+            if (mode !== 'camera') {
+                stopCamera();
+            }
+        }
+
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                await video.play();
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                document.getElementById('btnStartCamera').classList.add('hidden');
+                document.getElementById('btnStopCamera').classList.remove('hidden');
+                document.getElementById('cameraStatus').textContent = 'Escaneando... Aponte para o código de barras';
+
+                scanning = true;
+                scanFrame();
+            } catch (error) {
+                console.error('Erro ao acessar câmera:', error);
+                alert('Não foi possível acessar a câmera. Verifique as permissões.');
+            }
+        }
+
+        function stopCamera() {
+            scanning = false;
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            if (video) video.srcObject = null;
+
+            const btnStart = document.getElementById('btnStartCamera');
+            const btnStop = document.getElementById('btnStopCamera');
+            const status = document.getElementById('cameraStatus');
+
+            if (btnStart) btnStart.classList.remove('hidden');
+            if (btnStop) btnStop.classList.add('hidden');
+            if (status) status.textContent = 'Câmera parada';
+        }
+
+        async function scanFrame() {
+            if (!scanning) return;
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                try {
+                    const result = await codeReader.decodeFromVideoElement(video);
+                    if (result) {
+                        handleBarcodeFound(result.text);
+                        return;
+                    }
+                } catch (e) {
+                    // Continue scanning
+                }
+            }
+
+            if (scanning) {
+                setTimeout(() => requestAnimationFrame(scanFrame), 100);
+            }
+        }
+
+        async function handleBarcodeUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('cameraStatus').textContent = 'Processando imagem...';
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const img = new Image();
+                img.onload = async () => {
+                    try {
+                        const result = await codeReader.decodeFromImageElement(img);
+                        if (result) {
+                            handleBarcodeFound(result.text);
+                        } else {
+                            showBarcodeError('Código de barras não encontrado na imagem');
+                        }
+                    } catch (error) {
+                        // Tentar via API
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        try {
+                            const response = await fetch(`${API_URL}/api/escanear-codigo-barras`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const data = await response.json();
+                            if (data.sucesso && data.ean) {
+                                handleBarcodeFound(data.ean);
+                            } else {
+                                showBarcodeError('Código de barras não encontrado');
+                            }
+                        } catch (e) {
+                            showBarcodeError('Erro ao processar imagem');
+                        }
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function handleBarcodeFound(ean) {
+            stopCamera();
+
+            const resultado = document.getElementById('barcodeResult');
+            resultado.classList.remove('hidden');
+            resultado.innerHTML = `
+                <div class="resultado">
+                    <div class="ean-display">${ean}</div>
+                    <p class="status">Buscando produto...</p>
+                </div>
+            `;
+
+            try {
+                const formData = new FormData();
+                formData.append('ean', ean);
+
+                const response = await fetch(`${API_URL}/api/buscar-ean`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.sucesso) {
+                    showBarcodeProduct(data, ean);
+                } else {
+                    showBarcodeNotFound(ean, data.erro);
+                }
+            } catch (error) {
+                showBarcodeError('Erro ao buscar produto');
+            }
+        }
+
+        function showBarcodeProduct(data, ean) {
+            const resultado = document.getElementById('barcodeResult');
+            const produto = data.produto;
+
+            resultado.innerHTML = `
+                <div class="resultado">
+                    <div class="produto-encontrado">
+                        <div class="ean-display">${ean}</div>
+                        ${produto.imagem_url ? `<img src="${produto.imagem_url}" alt="${produto.nome}">` : ''}
+                        <h3>${produto.nome}</h3>
+                        ${produto.marca ? `<p style="color: var(--text-secondary);">Marca: ${produto.marca}</p>` : ''}
+
+                        ${data.precos && data.precos.length > 0 ? `
+                            <div class="preco-lista">
+                                <h4>Preços encontrados:</h4>
+                                ${data.precos.map(p => `
+                                    <div class="preco-item">
+                                        <span>${p.supermercado}</span>
+                                        <strong>R$ ${p.preco.toFixed(2)}</strong>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p style="margin-top: 15px; color: var(--text-secondary);">Nenhum preço encontrado. Seja o primeiro a adicionar!</p>'}
+
+                        <button class="btn btn-primary" onclick="adicionarPreco('${ean}', '${produto.nome}')">
+                            <span class="material-symbols-outlined">add_shopping_cart</span>
+                            Adicionar Preço
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetBarcode()">
+                            <span class="material-symbols-outlined">refresh</span>
+                            Escanear Outro
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showBarcodeNotFound(ean, erro) {
+            const resultado = document.getElementById('barcodeResult');
+            resultado.innerHTML = `
+                <div class="resultado">
+                    <div class="produto-encontrado">
+                        <div class="ean-display">${ean}</div>
+                        <span class="material-symbols-outlined not-found-icon">help_outline</span>
+                        <h3>Produto não encontrado</h3>
+                        <p style="color: var(--text-secondary);">${erro || 'Este produto ainda não está cadastrado'}</p>
+
+                        <button class="btn btn-primary" onclick="cadastrarProduto('${ean}')">
+                            <span class="material-symbols-outlined">add_circle</span>
+                            Cadastrar Produto
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetBarcode()">
+                            <span class="material-symbols-outlined">refresh</span>
+                            Escanear Outro
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showBarcodeError(message) {
+            const resultado = document.getElementById('barcodeResult');
+            resultado.classList.remove('hidden');
+            resultado.innerHTML = `
+                <div class="resultado">
+                    <div class="produto-encontrado">
+                        <span class="material-symbols-outlined not-found-icon">warning</span>
+                        <h3>${message}</h3>
+                        <button class="btn btn-secondary" onclick="resetBarcode()">
+                            <span class="material-symbols-outlined">refresh</span>
+                            Tentar Novamente
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function resetBarcode() {
+            document.getElementById('barcodeResult').classList.add('hidden');
+            document.getElementById('barcodeFileInput').value = '';
+        }
+
+        function adicionarPreco(ean, nome) {
+            localStorage.setItem('produto_ean', ean);
+            localStorage.setItem('produto_nome', nome);
+            window.location.href = '/contribuir.html';
+        }
+
+        function cadastrarProduto(ean) {
+            localStorage.setItem('produto_ean', ean);
+            window.location.href = '/contribuir.html';
+        }
+
+        // ========== NOTA FISCAL ==========
+        function handleReceiptUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            currentReceiptFile = file;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('receiptPreviewImage').src = e.target.result;
+                document.getElementById('receiptPreview').classList.remove('hidden');
+                document.getElementById('btnScanReceipt').disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function processReceipt() {
+            if (!currentReceiptFile) return;
+
+            const loading = document.getElementById('receiptLoading');
+            const result = document.getElementById('receiptResult');
+
+            loading.classList.remove('hidden');
+            result.classList.add('hidden');
+            document.getElementById('btnScanReceipt').disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', currentReceiptFile);
+
+            const usuarioNome = localStorage.getItem('usuario_nome');
+            if (usuarioNome) {
+                formData.append('usuario_nome', usuarioNome);
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/upload-nota`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                loading.classList.add('hidden');
+
+                if (data.sucesso) {
+                    showReceiptResult(data);
+                } else {
+                    showReceiptError(data.erro || 'Erro ao processar nota fiscal');
+                }
+            } catch (error) {
+                loading.classList.add('hidden');
+                showReceiptError('Erro de conexão com o servidor');
+            }
+        }
+
+        function showReceiptResult(data) {
+            const result = document.getElementById('receiptResult');
+            result.classList.remove('hidden');
+
+            result.innerHTML = `
+                <div class="result-header">
+                    <h2><span class="material-symbols-outlined">check_circle</span> Nota Processada!</h2>
+                    <div class="result-stats">
+                        <div>🏪 ${data.supermercado || 'Não identificado'}</div>
+                        <div>📦 ${data.produtos?.length || 0} produtos</div>
+                        <div>📅 ${data.data || 'Não identificada'}</div>
+                        <div>💰 Total: R$ ${(data.total || 0).toFixed(2)}</div>
+                    </div>
+                </div>
+
+                ${data.produtos && data.produtos.length > 0 ? `
+                    <h4 style="margin-bottom: 15px;">Produtos Extraídos:</h4>
+                    <div class="product-list">
+                        ${data.produtos.map(p => `
+                            <div class="product-item">
+                                <span class="product-name">${p.nome}</span>
+                                <span class="product-price">R$ ${(p.preco || 0).toFixed(2)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<p>Nenhum produto extraído</p>'}
+
+                ${data.tokens_ganhos ? `
+                    <div class="tokens-earned">
+                        💎 Você ganhou <strong>${data.tokens_ganhos}</strong> tokens!
+                    </div>
+                ` : ''}
+
+                <button class="btn btn-primary" onclick="resetReceipt()">
+                    <span class="material-symbols-outlined">add</span>
+                    Enviar Outra Nota
+                </button>
+            `;
+        }
+
+        function showReceiptError(message) {
+            const result = document.getElementById('receiptResult');
+            result.classList.remove('hidden');
+            result.innerHTML = `
+                <div class="error-message">
+                    <strong>Erro:</strong> ${message}
+                </div>
+                <button class="btn btn-secondary" onclick="resetReceipt()" style="margin-top: 15px;">
+                    <span class="material-symbols-outlined">refresh</span>
+                    Tentar Novamente
+                </button>
+            `;
+        }
+
+        function resetReceipt() {
+            currentReceiptFile = null;
+            document.getElementById('receiptFileInput').value = '';
+            document.getElementById('receiptPreview').classList.add('hidden');
+            document.getElementById('receiptResult').classList.add('hidden');
+            document.getElementById('btnScanReceipt').disabled = true;
+        }
+
+        // ========== FOTO PRODUTO ==========
+        function handlePhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            currentPhotoFile = file;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('photoPreviewImage').src = e.target.result;
+                document.getElementById('photoPreview').classList.remove('hidden');
+                document.getElementById('btnAnalyzePhoto').disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function analyzePhoto() {
+            if (!currentPhotoFile) return;
+
+            const loading = document.getElementById('photoLoading');
+            const result = document.getElementById('photoResult');
+
+            loading.classList.remove('hidden');
+            result.classList.add('hidden');
+            document.getElementById('btnAnalyzePhoto').disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', currentPhotoFile);
+
+            try {
+                const response = await fetch(`${API_URL}/api/analisar-foto-produto`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                loading.classList.add('hidden');
+
+                if (data.sucesso) {
+                    showPhotoResult(data);
+                } else {
+                    showPhotoError(data.erro || 'Não foi possível analisar a foto');
+                }
+            } catch (error) {
+                loading.classList.add('hidden');
+                showPhotoError('Erro de conexão com o servidor');
+            }
+        }
+
+        function showPhotoResult(data) {
+            const result = document.getElementById('photoResult');
+            result.classList.remove('hidden');
+
+            result.innerHTML = `
+                <div class="resultado">
+                    <div class="produto-encontrado">
+                        <h3>${data.produto?.nome || 'Produto identificado'}</h3>
+                        ${data.produto?.marca ? `<p style="color: var(--text-secondary);">Marca: ${data.produto.marca}</p>` : ''}
+                        ${data.produto?.preco ? `<p style="font-size: 24px; color: var(--primary); font-weight: 700;">R$ ${data.produto.preco.toFixed(2)}</p>` : ''}
+
+                        <button class="btn btn-primary" onclick="confirmarProdutoFoto()">
+                            <span class="material-symbols-outlined">check</span>
+                            Confirmar e Adicionar
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetPhoto()">
+                            <span class="material-symbols-outlined">refresh</span>
+                            Tirar Outra Foto
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showPhotoError(message) {
+            const result = document.getElementById('photoResult');
+            result.classList.remove('hidden');
+            result.innerHTML = `
+                <div class="error-message">
+                    <strong>Erro:</strong> ${message}
+                </div>
+                <button class="btn btn-secondary" onclick="resetPhoto()" style="margin-top: 15px;">
+                    <span class="material-symbols-outlined">refresh</span>
+                    Tentar Novamente
+                </button>
+            `;
+        }
+
+        function resetPhoto() {
+            currentPhotoFile = null;
+            document.getElementById('photoFileInput').value = '';
+            document.getElementById('photoPreview').classList.add('hidden');
+            document.getElementById('photoResult').classList.add('hidden');
+            document.getElementById('btnAnalyzePhoto').disabled = true;
+        }
+
+        function confirmarProdutoFoto() {
+            window.location.href = '/contribuir.html';
+        }
+    </script>
 </body>
 </html>

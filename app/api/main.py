@@ -528,6 +528,80 @@ async def melhores_ofertas(
     }
 
 
+@app.get("/api/destaques")
+async def produtos_destaque(
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    limite: int = Query(default=8, ge=1, le=20),
+    db: Session = Depends(get_db)
+):
+    """
+    Lista produtos em destaque: promoções próximas do usuário.
+    Ordena por proximidade se coordenadas fornecidas.
+    """
+    import math
+
+    data_limite = datetime.now() - timedelta(days=90)
+
+    # Buscar produtos em promoção recentes
+    query = db.query(Preco).join(Produto).filter(
+        Preco.em_promocao == True,
+        Preco.data_coleta >= data_limite,
+        Preco.disponivel == True,
+        Preco.preco > 0
+    )
+
+    precos = query.all()
+
+    # Calcular distância se coordenadas fornecidas
+    def calcular_distancia(lat1, lon1, lat2, lon2):
+        if not all([lat1, lon1, lat2, lon2]):
+            return float('inf')
+        R = 6371  # Raio da Terra em km
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        return R * c
+
+    resultados = []
+    for preco in precos:
+        distancia = None
+        if latitude and longitude and preco.latitude and preco.longitude:
+            distancia = calcular_distancia(latitude, longitude, preco.latitude, preco.longitude)
+
+        resultados.append({
+            "id": preco.id,
+            "produto_id": preco.produto_id,
+            "produto_nome": preco.produto.nome if preco.produto else "Produto",
+            "marca": preco.produto.marca if preco.produto else None,
+            "supermercado": preco.supermercado,
+            "preco": preco.preco,
+            "em_promocao": preco.em_promocao,
+            "distancia_km": round(distancia, 1) if distancia and distancia != float('inf') else None,
+            "data_coleta": preco.data_coleta.isoformat() if preco.data_coleta else None,
+            "latitude": preco.latitude,
+            "longitude": preco.longitude
+        })
+
+    # Ordenar: primeiro por distância (se disponível), depois por preço
+    if latitude and longitude:
+        # Produtos com distância primeiro, ordenados por distância
+        com_distancia = [r for r in resultados if r["distancia_km"] is not None]
+        sem_distancia = [r for r in resultados if r["distancia_km"] is None]
+        com_distancia.sort(key=lambda x: (x["distancia_km"], x["preco"]))
+        sem_distancia.sort(key=lambda x: x["preco"])
+        resultados = com_distancia + sem_distancia
+    else:
+        resultados.sort(key=lambda x: x["preco"])
+
+    return {
+        "total": len(resultados[:limite]),
+        "destaques": resultados[:limite],
+        "tem_geolocalizacao": latitude is not None and longitude is not None
+    }
+
+
 # ============================================
 # ENDPOINTS DE CONTRIBUIÇÃO MANUAL
 # ============================================
@@ -585,6 +659,9 @@ async def adicionar_preco_manual(
         usuario_nome=contribuicao.usuario_nome,
         preco_id=novo_preco.id
     )
+
+    # Registrar atividade do usuário
+    crypto.registrar_atividade(contribuicao.usuario_nome)
 
     # Validação automática de preço (auto-moderação sem intervenção humana)
     from app.utils.auto_moderador import get_auto_moderador
@@ -1675,6 +1752,11 @@ async def login(
     crypto = CryptoManager(db)
     resultado = crypto.autenticar(login_data.cpf, login_data.senha)
 
+    # Registrar atividade do usuário (para sistema de votação)
+    if resultado.get("sucesso") and resultado.get("usuario_nome"):
+        crypto.registrar_atividade(resultado["usuario_nome"])
+        db.commit()
+
     return LoginResponse(**resultado)
 
 
@@ -1702,6 +1784,9 @@ async def registrar(
         cpf=cpf,
         senha=senha
     )
+
+    # Registrar atividade do novo usuário
+    crypto.registrar_atividade(usuario_nome)
     db.commit()
 
     return LoginResponse(
@@ -1934,6 +2019,11 @@ async def criar_comentario(
             "Comentário na DAO"
         )
 
+    # Registrar atividade do usuário
+    crypto = CryptoManager(db)
+    crypto.registrar_atividade(comentario.usuario_nome)
+    db.commit()
+
     return novo_comentario
 
 
@@ -2149,6 +2239,10 @@ async def criar_sugestao(
         tokens_escrow=5.0  # Tokens bloqueados
     )
     db.add(nova_sugestao)
+
+    # Registrar atividade do usuário
+    crypto.registrar_atividade(sugestao.usuario_nome)
+
     db.commit()
     db.refresh(nova_sugestao)
 
@@ -2404,16 +2498,18 @@ async def votar_sugestao(
     # Votos gerados já estão em sugestao.total_votos_favor e sugestao.total_votos_contra
     # que foram atualizados acima com votos_gerados
 
-    # Contar total de usuários que PODEM votar (todos exceto o criador)
-    total_usuarios = db.query(Carteira).count()
-    usuarios_podem_votar = total_usuarios - 1  # Excluir o criador da sugestão
+    # Contar apenas usuários ATIVOS (não estão em "soneca" - 24h+ sem atividade)
+    # Exclui o criador da sugestão da contagem
+    usuarios_ativos = crypto.contar_usuarios_ativos(excluir_usuario=sugestao.usuario_nome)
 
-    # Calcular threshold: 60% dos usuários que podem votar
-    # Se cada um votar com 1 token mínimo = 1 voto cada
+    # Garantir mínimo de 1 usuário para evitar divisão por zero
+    usuarios_podem_votar = max(usuarios_ativos, 1)
+
+    # Calcular threshold: 70% dos usuários ATIVOS que podem votar
     import math
-    minimo_votos_para_decidir = math.ceil(usuarios_podem_votar * 0.6)
+    minimo_votos_para_decidir = math.ceil(usuarios_podem_votar * 0.7)
 
-    # Verificar se atingiu 60% dos votos possíveis A FAVOR
+    # Verificar se atingiu 70% dos votos possíveis A FAVOR
     # Considerando os votos quadráticos gerados
     if sugestao.total_votos_favor >= minimo_votos_para_decidir:
         sugestao.status = StatusSugestao.APROVADA
@@ -2428,7 +2524,7 @@ async def votar_sugestao(
             f"Sugestão #{sugestao.id} aprovada pela comunidade"
         )
 
-    # Verificar se atingiu 60% dos votos possíveis CONTRA
+    # Verificar se atingiu 70% dos votos possíveis CONTRA
     # Considerando os votos quadráticos gerados
     elif sugestao.total_votos_contra >= minimo_votos_para_decidir:
         sugestao.status = StatusSugestao.REJEITADA
@@ -2451,6 +2547,9 @@ async def votar_sugestao(
         ReputacaoManager.VOTO_SUGESTAO,
         f"Voto na sugestão #{voto.sugestao_id}"
     )
+
+    # Registrar atividade do usuário que votou
+    crypto.registrar_atividade(voto.usuario_nome)
 
     db.commit()
     db.refresh(sugestao)
@@ -2526,6 +2625,39 @@ async def estatisticas_dao(db: Session = Depends(get_db)):
         total_usuarios_participantes=total_usuarios_participantes,
         total_tokens_votados=total_tokens_votados
     )
+
+
+@app.get("/api/dao/usuarios-ativos")
+async def usuarios_ativos_dao(db: Session = Depends(get_db)):
+    """
+    Retorna estatísticas de usuários ativos vs inativos (soneca).
+    Usuários são considerados inativos após 24h sem atividade.
+    Mostra o threshold atual para aprovação de votações.
+    """
+    import math
+    from datetime import timedelta
+
+    limite = datetime.now() - timedelta(hours=24)
+
+    total_usuarios = db.query(Carteira).count()
+    usuarios_ativos = db.query(Carteira).filter(
+        Carteira.ultima_atividade >= limite
+    ).count()
+    usuarios_soneca = total_usuarios - usuarios_ativos
+
+    # Calcular threshold atual (mínimo de 1)
+    usuarios_podem_votar = max(usuarios_ativos, 1)
+    minimo_votos = math.ceil(usuarios_podem_votar * 0.7)
+
+    return {
+        "total_usuarios": total_usuarios,
+        "usuarios_ativos": usuarios_ativos,
+        "usuarios_soneca": usuarios_soneca,
+        "threshold_votacao": 0.7,
+        "minimo_votos_atual": minimo_votos,
+        "horas_para_soneca": 24,
+        "explicacao": f"Sugestões precisam de {minimo_votos} voto(s) (70% de {usuarios_ativos} usuário(s) ativo(s)) para serem aprovadas/rejeitadas"
+    }
 
 
 @app.patch("/api/dao/sugestoes/{sugestao_id}/status")

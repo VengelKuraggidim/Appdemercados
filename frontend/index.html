@@ -19,7 +19,7 @@
     <!-- Neomorphic Design System CSS -->
     <link rel="stylesheet" href="/css/neomorphic.css">
 
-    <title>Comparador de Preços</title>
+    <title>Aplicativo de Mercados</title>
 
     <style>
         * {
@@ -207,6 +207,297 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
+        }
+
+        /* Status Badge (Ativo/Soneca) */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .status-badge.ativo {
+            background: rgba(16, 185, 129, 0.15);
+            color: #059669;
+        }
+
+        .status-badge.soneca {
+            background: rgba(245, 158, 11, 0.15);
+            color: #d97706;
+        }
+
+        .status-badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-badge.ativo .status-badge-dot {
+            background: #10b981;
+            animation: pulse-green 2s infinite;
+        }
+
+        .status-badge.soneca .status-badge-dot {
+            background: #f59e0b;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Usuarios Ativos Indicator */
+        .usuarios-ativos-box {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1));
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .usuarios-ativos-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .usuarios-ativos-titulo {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .usuarios-ativos-numero {
+            font-size: 20px;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        .votos-necessarios-box {
+            text-align: right;
+        }
+
+        .votos-necessarios-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .votos-necessarios-numero {
+            font-size: 16px;
+            font-weight: 600;
+            color: #3b82f6;
+        }
+
+        /* Seção de Destaques */
+        /* === SEÇÃO DESTAQUES - Layout Premium === */
+        .destaques-section {
+            margin: 24px 0;
+            padding: 24px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .destaques-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .destaques-titulo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .destaques-titulo .material-symbols-outlined {
+            color: #ff6b6b;
+            font-size: 28px;
+            animation: pulse-fire 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-fire {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .destaques-refresh {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+
+        .destaques-refresh:hover {
+            background: rgba(16, 185, 129, 0.3);
+            transform: rotate(180deg);
+        }
+
+        .destaques-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+        }
+
+        .destaque-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 16px;
+            padding: 18px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .destaque-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+        }
+
+        .destaque-card:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+        }
+
+        .destaque-badge-promo {
+            display: inline-block;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+            animation: badge-glow 2s ease-in-out infinite;
+            margin-bottom: 6px;
+        }
+
+        @keyframes badge-glow {
+            0%, 100% { box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 2px 16px rgba(239, 68, 68, 0.7); }
+        }
+
+        .destaque-nome {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+            margin-top: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.4;
+            min-height: 42px;
+        }
+
+        .destaque-mercado {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .destaque-mercado::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+        }
+
+        .destaque-preco {
+            font-size: 24px;
+            font-weight: 800;
+            color: #10b981;
+            display: flex;
+            align-items: baseline;
+            gap: 2px;
+        }
+
+        .destaque-preco::before {
+            content: 'R$';
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .destaque-distancia {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.15);
+            padding: 6px 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .destaques-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 40px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 15px;
+        }
+
+        .spinner-small {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .destaques-empty {
+            text-align: center;
+            padding: 40px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .destaques-empty .material-symbols-outlined {
+            font-size: 48px;
+            opacity: 0.6;
+            margin-bottom: 12px;
+        }
+
+        .destaques-empty p {
+            font-size: 15px;
+            margin: 0;
         }
 
         /* Menu Items */
@@ -862,9 +1153,20 @@
                 <div class="user-avatar" id="userAvatar">U</div>
                 <div class="user-details">
                     <div class="user-name" id="userName"></div>
-                    <div class="user-status">Conectado</div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="status-badge ativo" id="userStatusBadge">
+                            <span class="status-badge-dot"></span>
+                            <span id="userStatusText">Ativo</span>
+                        </span>
+                    </div>
                 </div>
                 <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+            </div>
+
+            <!-- Indicador compacto de usuários ativos -->
+            <div id="usuariosAtivosCompacto" style="display: none; margin-top: 8px; padding: 6px 10px; background: rgba(16, 185, 129, 0.08); border-radius: 8px; font-size: 11px; color: var(--text-secondary);">
+                <span style="color: #10b981; font-weight: 600;" id="usuariosAtivosNumero">0</span> ativos ·
+                <span style="color: #3b82f6; font-weight: 600;" id="votosNecessariosNumero">0</span> votos p/ aprovar
             </div>
         </div>
 
@@ -893,9 +1195,9 @@
                 <span class="menu-item-icon">🛒</span>
                 Lista de Compras
             </a>
-            <a href="/barcode-scanner.html" class="menu-item">
-                <span class="menu-item-icon">📷</span>
-                Scanner de Código
+            <a href="/scanner.html" class="menu-item">
+                <span class="menu-item-icon">📱</span>
+                Scanner
             </a>
             <a href="#" class="menu-item" onclick="abrirConfigTransporte(); return false;">
                 <span class="menu-item-icon">🚗</span>
@@ -920,12 +1222,12 @@
     <div class="main-layout">
         <div class="content-area" id="contentArea">
             <header class="app-header" id="headerComparador">
-                <div class="header-left">
+                <div class="header-left" style="margin-left: 50px;">
                     <div class="header-logo">
                         <span class="material-symbols-outlined">shopping_cart</span>
                     </div>
                     <div>
-                        <div class="header-title">Comparador</div>
+                        <div class="header-title">Aplicativo de Mercados</div>
                     </div>
                 </div>
                 <div class="header-right">
@@ -952,7 +1254,6 @@
             <div class="search-container">
                 <div class="search-input-group">
                     <div class="search-input-wrapper">
-                        <span class="material-symbols-outlined search-icon">search</span>
                         <input type="text" id="searchInput" class="search-input" placeholder="Buscar produtos...">
                     </div>
                     <button id="searchBtn" class="search-btn" onclick="buscarProdutos()">
@@ -967,6 +1268,28 @@
                     <div class="filter-chip" data-market="extra">Extra</div>
                     <div class="filter-chip" data-market="mercado_livre">Mercado Livre</div>
                     <div class="filter-chip" data-market="loja_descontos">Descontos</div>
+                </div>
+            </div>
+
+            <!-- Seção de Destaques -->
+            <div id="destaquesSection" class="destaques-section">
+                <div class="destaques-header">
+                    <h3 class="destaques-titulo">
+                        <span class="material-symbols-outlined">local_fire_department</span>
+                        Ofertas Perto de Você
+                    </h3>
+                    <button onclick="carregarDestaques()" class="destaques-refresh" title="Atualizar">
+                        <span class="material-symbols-outlined">refresh</span>
+                    </button>
+                </div>
+                <div id="destaquesLoading" class="destaques-loading" style="display: none;">
+                    <div class="spinner-small"></div>
+                    <span>Buscando ofertas...</span>
+                </div>
+                <div id="destaquesGrid" class="destaques-grid"></div>
+                <div id="destaquesEmpty" class="destaques-empty" style="display: none;">
+                    <span class="material-symbols-outlined">location_off</span>
+                    <p>Ative a localização para ver ofertas próximas</p>
                 </div>
             </div>
 
@@ -1412,6 +1735,22 @@
         const API_URL_AUTH = 'http://localhost:8000/api';
         let usuarioAtual = localStorage.getItem('usuario_nome') || null;
 
+        // Atualizar badge de status (Ativo/Soneca)
+        function atualizarStatusBadge(ativo) {
+            const badge = document.getElementById('userStatusBadge');
+            const text = document.getElementById('userStatusText');
+
+            if (badge && text) {
+                if (ativo) {
+                    badge.className = 'status-badge ativo';
+                    text.textContent = 'Ativo';
+                } else {
+                    badge.className = 'status-badge soneca';
+                    text.textContent = 'Soneca';
+                }
+            }
+        }
+
         // Toggle Sidebar
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -1489,7 +1828,15 @@
                     localStorage.setItem('cpf', cpf);
                     mostrarUsuarioLogado();
                     await atualizarCarteira();
-                    mostrarToastSucesso(`Bem-vindo(a), ${data.usuario_nome}!`, '👋');
+
+                    // Mensagem especial se usuário estava em "soneca" (24h+ inativo)
+                    if (data.estava_soneca) {
+                        mostrarToastSucesso(`Bem-vindo(a) de volta, ${data.usuario_nome}! Sentimos sua falta.`, '😴');
+                        // Atualizar badge para ativo
+                        atualizarStatusBadge(true);
+                    } else {
+                        mostrarToastSucesso(`Bem-vindo(a), ${data.usuario_nome}!`, '👋');
+                    }
                 } else {
                     mostrarToastErro(data.mensagem);
                 }
@@ -1551,6 +1898,7 @@
             localStorage.removeItem('cpf');
             mostrarFormularioLogin();
             document.getElementById('walletCard').style.display = 'none';
+            document.getElementById('usuariosAtivosCompacto').style.display = 'none';
         }
 
         // Mostrar usuário logado
@@ -1560,6 +1908,9 @@
             document.getElementById('userName').textContent = usuarioAtual;
             document.getElementById('userAvatar').textContent = usuarioAtual[0].toUpperCase();
             document.getElementById('walletCard').style.display = 'block';
+
+            // Atualizar indicador de usuários ativos
+            atualizarUsuariosAtivos();
         }
 
         // Mostrar formulário de login
@@ -2733,8 +3084,141 @@
             }
         }
 
+        // Buscar usuários ativos para mostrar threshold de votação
+        async function atualizarUsuariosAtivos() {
+            try {
+                const apiBase = typeof API_URL_AUTH !== 'undefined' ? API_URL_AUTH : 'http://localhost:8000/api';
+                const response = await fetch(`${apiBase}/dao/usuarios-ativos`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const numAtivos = document.getElementById('usuariosAtivosNumero');
+                    const numVotos = document.getElementById('votosNecessariosNumero');
+                    const compacto = document.getElementById('usuariosAtivosCompacto');
+
+                    if (numAtivos) numAtivos.textContent = data.usuarios_ativos;
+                    if (numVotos) numVotos.textContent = data.minimo_votos_atual;
+
+                    // Mostrar indicador compacto se usuário logado
+                    if (compacto && usuarioAtual) {
+                        compacto.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao buscar usuários ativos:', error);
+            }
+        }
+
+        // Obter localização do usuário (usa userLocation global do app.js)
+        function obterLocalizacaoDestaques() {
+            return new Promise((resolve) => {
+                // Se já temos localização do app.js, usar ela
+                if (typeof userLocation !== 'undefined' && userLocation && userLocation.latitude) {
+                    resolve(userLocation);
+                    return;
+                }
+                if (!navigator.geolocation) {
+                    resolve(null);
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const loc = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                        // Atualizar global se existir
+                        if (typeof userLocation !== 'undefined') {
+                            userLocation = loc;
+                        }
+                        resolve(loc);
+                    },
+                    () => resolve(null),
+                    { timeout: 5000, enableHighAccuracy: false }
+                );
+            });
+        }
+
+        // Carregar produtos em destaque
+        async function carregarDestaques() {
+            const grid = document.getElementById('destaquesGrid');
+            const loading = document.getElementById('destaquesLoading');
+            const empty = document.getElementById('destaquesEmpty');
+            const section = document.getElementById('destaquesSection');
+
+            if (!grid) return;
+
+            loading.style.display = 'flex';
+            grid.innerHTML = '';
+            empty.style.display = 'none';
+
+            try {
+                // Obter localização
+                const loc = await obterLocalizacaoDestaques();
+
+                const apiBase = typeof API_URL_AUTH !== 'undefined' ? API_URL_AUTH : 'http://localhost:8000/api';
+                let url = `${apiBase}/destaques?limite=12`;
+                if (loc && loc.latitude) {
+                    url += `&latitude=${loc.latitude}&longitude=${loc.longitude}`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Erro na API');
+
+                const data = await response.json();
+
+                loading.style.display = 'none';
+
+                if (!data.destaques || data.destaques.length === 0) {
+                    // Esconder seção se não há destaques
+                    if (section) section.style.display = 'none';
+                    return;
+                }
+
+                // Mostrar seção
+                if (section) section.style.display = 'block';
+
+                grid.innerHTML = data.destaques.map(item => `
+                    <div class="destaque-card" onclick="buscarProdutoPorNome('${(item.produto_nome || 'Produto').replace(/'/g, "\\'")}')">
+                        ${item.em_promocao ? '<span class="destaque-badge-promo">PROMO</span>' : ''}
+                        <div class="destaque-nome">${item.produto_nome || 'Produto'}</div>
+                        <div class="destaque-mercado">${item.supermercado || ''}</div>
+                        <div class="destaque-preco">${(item.preco || 0).toFixed(2)}</div>
+                        ${item.distancia_km ? `<span class="destaque-distancia"><span class="material-symbols-outlined" style="font-size: 14px;">location_on</span>${item.distancia_km} km</span>` : ''}
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Erro ao carregar destaques:', error);
+                loading.style.display = 'none';
+                // Esconder seção em caso de erro (servidor offline)
+                if (section) section.style.display = 'none';
+            }
+        }
+
+        // Buscar produto por nome (quando clica em um destaque)
+        function buscarProdutoPorNome(nome) {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = nome;
+                // Disparar evento de busca (simula Enter)
+                searchInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
+            }
+        }
+
+        // Carregar destaques quando a página iniciar
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(carregarDestaques, 500);
+            });
+        } else {
+            // DOM já carregado
+            setTimeout(carregarDestaques, 500);
+        }
+
         // Sugestões
         async function carregarSugestoesDAO(status = '') {
+            // Atualizar indicador de usuários ativos
+            atualizarUsuariosAtivos();
             try {
                 const url = status ? `${API_URL_AUTH}/dao/sugestoes?status=${status}` : `${API_URL_AUTH}/dao/sugestoes`;
                 const response = await fetch(url);

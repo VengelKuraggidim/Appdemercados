@@ -23,6 +23,7 @@ class LoginResponse(BaseModel):
     usuario_nome: Optional[str] = None
     saldo: Optional[float] = None
     token: Optional[str] = None  # JWT token para sessão
+    estava_soneca: Optional[bool] = None  # True se usuário estava inativo 24h+
 
 
 class CarteiraResponse(BaseModel):
