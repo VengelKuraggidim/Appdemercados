@@ -320,20 +320,21 @@
         <div class="error-message" id="errorMessage"></div>
     </div>
 
+    <script src="/src/app.js?v=20250108c"></script>
     <script src="/src/scanner.js?v=5"></script>
     <script>
+        // Auth guard
+        if (!localStorage.getItem('auth_token')) {
+            window.location.href = '/?login=required';
+        }
+
         // Verificar status de login ao carregar página
         window.addEventListener('DOMContentLoaded', () => {
             const usuarioLogado = localStorage.getItem('usuario_nome');
             const loginStatus = document.getElementById('loginStatus');
             const loginStatusText = document.getElementById('loginStatusText');
 
-            if (!usuarioLogado || usuarioLogado === 'null' || usuarioLogado === '') {
-                loginStatus.style.display = 'block';
-                loginStatus.style.background = '#ffebee';
-                loginStatus.style.border = '2px solid #f44336';
-                loginStatusText.innerHTML = '⚠️ <strong>Você não está logado!</strong> <a href="/index.html" style="color: #f44336; text-decoration: underline;">Clique aqui para fazer login</a>';
-            } else {
+            if (usuarioLogado) {
                 loginStatus.style.display = 'block';
                 loginStatus.style.background = '#e8f5e9';
                 loginStatus.style.border = '2px solid #4CAF50';

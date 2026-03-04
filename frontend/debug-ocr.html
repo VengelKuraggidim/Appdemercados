@@ -235,8 +235,9 @@
         </div>
     </div>
 
+    <script src="/src/app.js?v=20250108c"></script>
     <script>
-        const API_URL = 'http://localhost:8000/api';
+        const API_URL_OCR = `${API_URL}/api`;
         let produtos = [];
 
         // Preencher usuário logado
@@ -259,7 +260,7 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch(`${API_URL}/debug-ocr`, {
+                const response = await fetch(`${API_URL_OCR}/debug-ocr`, {
                     method: 'POST',
                     body: formData
                 });
@@ -294,7 +295,7 @@
 
                 // Se não houver texto, mostrar informação
                 if (!textoExtraido || textoExtraido.trim() === '') {
-                    alert('⚠️ Nenhum texto foi extraído da imagem. Verifique se a imagem está nítida e com boa iluminação.');
+                    mostrarToastInfoGlobal('Nenhum texto foi extraido da imagem. Verifique se a imagem esta nitida e com boa iluminacao.');
                 }
 
                 document.getElementById('loading').classList.remove('show');
@@ -302,7 +303,7 @@
 
             } catch (error) {
                 console.error('Erro completo:', error);
-                alert('Erro ao processar imagem: ' + error.message);
+                mostrarToastErroGlobal('Erro ao processar imagem: ' + error.message);
                 document.getElementById('loading').classList.remove('show');
             }
         });
@@ -337,20 +338,20 @@
         async function salvarNota() {
             const usuarioNome = document.getElementById('usuarioNome').value.trim();
             if (!usuarioNome) {
-                alert('Digite seu nome de usuário');
+                mostrarToastInfoGlobal('Digite seu nome de usuario');
                 return;
             }
 
             const supermercado = document.getElementById('supermercado').value.trim();
             if (!supermercado) {
-                alert('Digite o nome do supermercado');
+                mostrarToastInfoGlobal('Digite o nome do supermercado');
                 return;
             }
 
             // Filtrar produtos válidos
             const produtosValidos = produtos.filter(p => p.nome && p.preco > 0);
             if (produtosValidos.length === 0) {
-                alert('Adicione pelo menos um produto com nome e preço');
+                mostrarToastInfoGlobal('Adicione pelo menos um produto com nome e preco');
                 return;
             }
 
@@ -376,7 +377,7 @@
 
                 console.log('FormData criado com sucesso');
 
-                const response = await fetch(`${API_URL}/escanear-nota-fiscal`, {
+                const response = await fetch(`${API_URL_OCR}/escanear-nota-fiscal`, {
                     method: 'POST',
                     body: formData
                 });
@@ -386,21 +387,21 @@
                 if (response.ok) {
                     const result = await response.json();
                     console.log('Resultado:', result);
-                    alert(`✅ Sucesso! ${result.total_produtos} produtos salvos. Você ganhou ${result.tokens_ganhos} tokens!`);
+                    mostrarToastSucessoGlobal(`${result.total_produtos} produtos salvos! Voce ganhou ${result.tokens_ganhos} tokens!`);
                     window.location.href = '/';
                 } else {
                     const errorText = await response.text();
                     console.error('Erro do servidor:', errorText);
                     try {
                         const error = JSON.parse(errorText);
-                        alert('Erro ao salvar: ' + (error.detail || errorText));
+                        mostrarToastErroGlobal('Erro ao salvar: ' + (error.detail || errorText));
                     } catch {
-                        alert('Erro ao salvar: ' + errorText);
+                        mostrarToastErroGlobal('Erro ao salvar: ' + errorText);
                     }
                 }
             } catch (error) {
                 console.error('Erro completo:', error);
-                alert('Erro ao salvar nota fiscal: ' + error.message);
+                mostrarToastErroGlobal('Erro ao salvar nota fiscal: ' + error.message);
             }
         }
     </script>

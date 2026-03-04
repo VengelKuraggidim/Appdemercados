@@ -47,6 +47,7 @@ from app.models.schemas_lista import ListaComprasCreate, ItemListaCreate
 from app.utils.auto_moderador import get_auto_moderador
 from app.utils.ean_service import ean_service
 from app.utils.comparador_lista import get_comparador_lista
+from app.utils.auth import criar_token, get_current_user, get_optional_user, get_moderador
 
 app = FastAPI(
     title="Comparador de Preços",
@@ -1593,6 +1594,11 @@ async def login(
     crypto = CryptoManager(db)
     resultado = crypto.autenticar(login_data.cpf, login_data.senha)
 
+    # Gerar JWT se autenticacao foi bem sucedida
+    if resultado.get("sucesso"):
+        token = criar_token(resultado["usuario_nome"], login_data.cpf)
+        resultado["token"] = token
+
     return LoginResponse(**resultado)
 
 
@@ -1622,12 +1628,33 @@ async def registrar(
     )
     db.commit()
 
+    token = criar_token(carteira.usuario_nome, cpf)
+
     return LoginResponse(
         sucesso=True,
         mensagem="Cadastro realizado com sucesso!",
         usuario_nome=carteira.usuario_nome,
-        saldo=carteira.saldo
+        saldo=carteira.saldo,
+        token=token
     )
+
+
+@app.get("/api/auth/verificar")
+async def verificar_sessao(
+    current_user: Carteira = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Verifica se o token JWT e valido e retorna info do usuario"""
+    is_mod = db.query(Moderador).filter(
+        Moderador.usuario_nome == current_user.usuario_nome,
+        Moderador.ativo == True
+    ).first()
+    return {
+        "valido": True,
+        "usuario_nome": current_user.usuario_nome,
+        "saldo": current_user.saldo,
+        "is_moderador": bool(is_mod)
+    }
 
 
 @app.get("/api/carteira/{usuario_nome}", response_model=SaldoResponse)
@@ -1839,19 +1866,23 @@ async def listar_comentarios(
 @app.delete("/api/dao/comentarios/{comentario_id}")
 async def deletar_comentario(
     comentario_id: int,
-    usuario_nome: str,
+    current_user: Carteira = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Deleta um comentário (apenas o autor ou admin pode deletar)
+    Deleta um comentário (apenas o autor ou moderador pode deletar)
     """
     comentario = db.query(Comentario).filter(Comentario.id == comentario_id).first()
 
     if not comentario:
         raise HTTPException(status_code=404, detail="Comentário não encontrado")
 
-    # Apenas o autor ou admin pode deletar
-    if comentario.usuario_nome != usuario_nome and usuario_nome != "Vengel":
+    # Apenas o autor ou moderador pode deletar
+    is_mod = db.query(Moderador).filter(
+        Moderador.usuario_nome == current_user.usuario_nome,
+        Moderador.ativo == True
+    ).first()
+    if comentario.usuario_nome != current_user.usuario_nome and not is_mod:
         raise HTTPException(status_code=403, detail="Você não tem permissão para deletar este comentário")
 
     db.delete(comentario)
@@ -1863,8 +1894,8 @@ async def deletar_comentario(
 @app.post("/api/dao/comentarios/{comentario_id}/votar")
 async def votar_comentario(
     comentario_id: int,
-    usuario_nome: str = Query(...),
     tipo: str = Query(..., regex="^(like|dislike)$"),
+    current_user: Carteira = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -1882,6 +1913,8 @@ async def votar_comentario(
     comentario = db.query(Comentario).filter(Comentario.id == comentario_id).first()
     if not comentario:
         raise HTTPException(status_code=404, detail="Comentário não encontrado")
+
+    usuario_nome = current_user.usuario_nome
 
     # Verificar se já votou
     voto_existente = db.query(VotoComentario).filter(
@@ -2047,11 +2080,12 @@ async def obter_sugestao(
 async def aprovar_sugestao(
     sugestao_id: int,
     request: AprovarSugestaoRequest,
+    current_user: Carteira = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Aprova uma sugestão para entrar em votação
-    Precisa de pelo menos 1 aprovação de usuário da comunidade
+    Moderador pode aprovar diretamente, outros usuarios contam como aprovacao da comunidade
     """
     sugestao = db.query(Sugestao).filter(Sugestao.id == sugestao_id).first()
 
@@ -2064,17 +2098,20 @@ async def aprovar_sugestao(
     # Verificar se usuário já aprovou
     aprovadores_lista = sugestao.aprovadores.split(",") if sugestao.aprovadores else []
 
-    if request.usuario_nome in aprovadores_lista:
+    if current_user.usuario_nome in aprovadores_lista:
         raise HTTPException(status_code=400, detail="Você já aprovou esta sugestão")
 
     # Adicionar aprovador
-    aprovadores_lista.append(request.usuario_nome)
+    aprovadores_lista.append(current_user.usuario_nome)
     sugestao.aprovadores = ",".join(aprovadores_lista)
     sugestao.total_aprovadores = len(aprovadores_lista)
 
-    # Se você (Vengel) ou qualquer usuário aprovar, vai para votação
-    # Pode ajustar lógica aqui se quiser exigir mais aprovações
-    if request.usuario_nome == "Vengel" or sugestao.total_aprovadores >= 1:
+    # Se moderador ou aprovacoes suficientes, vai para votacao
+    is_mod = db.query(Moderador).filter(
+        Moderador.usuario_nome == current_user.usuario_nome,
+        Moderador.ativo == True
+    ).first()
+    if is_mod or sugestao.total_aprovadores >= 1:
         sugestao.status = StatusSugestao.EM_VOTACAO
         sugestao.data_aprovacao = datetime.now()
 
@@ -2092,13 +2129,12 @@ async def aprovar_sugestao(
 async def rejeitar_sugestao(
     sugestao_id: int,
     request: RejeitarSugestaoRequest,
+    current_user: Carteira = Depends(get_moderador),
     db: Session = Depends(get_db)
 ):
     """
-    Rejeita uma sugestão (apenas admin)
+    Rejeita uma sugestão (apenas moderadores)
     """
-    if request.usuario_admin != "Vengel":
-        raise HTTPException(status_code=403, detail="Apenas o admin pode rejeitar sugestões")
 
     sugestao = db.query(Sugestao).filter(Sugestao.id == sugestao_id).first()
 
@@ -2368,16 +2404,13 @@ async def estatisticas_dao(db: Session = Depends(get_db)):
 async def atualizar_status_sugestao(
     sugestao_id: int,
     novo_status: str,
-    admin_usuario: str,
+    current_user: Carteira = Depends(get_moderador),
     db: Session = Depends(get_db)
 ):
     """
     Atualiza status de uma sugestão (implementada, rejeitada, etc)
-    Apenas usuário Vengel pode fazer isso por enquanto
+    Apenas moderadores podem fazer isso
     """
-    # Verificação simples de admin (em produção usar sistema de permissões)
-    if admin_usuario != "Vengel":
-        raise HTTPException(status_code=403, detail="Apenas administradores podem alterar status")
 
     sugestao = db.query(Sugestao).filter(Sugestao.id == sugestao_id).first()
     if not sugestao:
@@ -2656,15 +2689,12 @@ async def listar_validacoes_recebidas(
 @app.post("/api/moderadores/adicionar", response_model=ModeradorResponse)
 async def adicionar_moderador(
     moderador_data: ModeradorCreate,
-    admin_usuario: str = "Vengel",
+    current_user: Carteira = Depends(get_moderador),
     db: Session = Depends(get_db)
 ):
     """
-    Adiciona um novo moderador (apenas admin pode fazer isso)
+    Adiciona um novo moderador (apenas moderadores podem fazer isso)
     """
-    # Verificação de permissão
-    if admin_usuario != "Vengel":
-        raise HTTPException(status_code=403, detail="Apenas o admin pode adicionar moderadores")
 
     # Verificar se já existe
     moderador_existente = db.query(Moderador).filter(
@@ -2727,6 +2757,7 @@ async def obter_moderador(
 @app.post("/api/moderadores/aceitar-implementar")
 async def aceitar_implementar_sugestao(
     request: AceitarImplementarRequest,
+    current_user: Carteira = Depends(get_moderador),
     db: Session = Depends(get_db)
 ):
     """
@@ -2792,6 +2823,7 @@ async def aceitar_implementar_sugestao(
 @app.post("/api/moderadores/marcar-implementada")
 async def marcar_sugestao_como_implementada(
     request: MarcarImplementadaRequest,
+    current_user: Carteira = Depends(get_moderador),
     db: Session = Depends(get_db)
 ):
     """
@@ -2870,6 +2902,7 @@ async def marcar_sugestao_como_implementada(
 @app.post("/api/moderadores/cancelar-implementacao")
 async def cancelar_implementacao(
     request: CancelarImplementacaoRequest,
+    current_user: Carteira = Depends(get_moderador),
     db: Session = Depends(get_db)
 ):
     """
@@ -2902,11 +2935,11 @@ async def cancelar_implementacao(
             detail=f"Sugestão não está em implementação. Status: {sugestao.status.value}"
         )
 
-    # Verificar se é o moderador responsável ou admin
-    if sugestao.moderador_implementador != request.moderador_nome and request.moderador_nome != "Vengel":
+    # Verificar se e o moderador responsavel (qualquer moderador autenticado pode cancelar)
+    if sugestao.moderador_implementador != request.moderador_nome and sugestao.moderador_implementador != current_user.usuario_nome:
         raise HTTPException(
             status_code=403,
-            detail=f"Apenas {sugestao.moderador_implementador} ou admin pode cancelar"
+            detail=f"Apenas {sugestao.moderador_implementador} pode cancelar"
         )
 
     tokens_escrow = sugestao.tokens_escrow

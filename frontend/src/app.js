@@ -6,6 +6,53 @@ let deferredPrompt;
 let userLocation = null;
 let useGeoOptimization = false;
 
+// ============================================
+// AUTH HELPERS
+// ============================================
+
+function getAuthHeaders(extraHeaders = {}) {
+    const token = localStorage.getItem('auth_token');
+    const headers = { 'Content-Type': 'application/json', ...extraHeaders };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
+function getAuthToken() {
+    return localStorage.getItem('auth_token');
+}
+
+// ============================================
+// TOAST NOTIFICATIONS (reutilizaveis)
+// ============================================
+
+function mostrarToast(mensagem, cor = '#4CAF50', icone = '') {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed; top: 20px; right: 20px;
+        background: ${cor}; color: white;
+        padding: 16px 24px; border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000; max-width: 400px;
+        font-size: 14px; animation: slideIn 0.3s ease;
+    `;
+    toast.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">
+        ${icone ? `<span style="font-size:20px;">${icone}</span>` : ''}
+        <span>${mensagem}</span>
+    </div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function mostrarToastSucessoGlobal(msg) { mostrarToast(msg, '#4CAF50', '✅'); }
+function mostrarToastErroGlobal(msg) { mostrarToast(msg, '#f44336', '❌'); }
+function mostrarToastInfoGlobal(msg) { mostrarToast(msg, '#2196F3', 'ℹ️'); }
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
@@ -62,7 +109,7 @@ async function buscarProdutos() {
     const termo = document.getElementById('searchInput').value.trim();
 
     if (!termo || termo.length < 2) {
-        alert('Digite pelo menos 2 caracteres para buscar');
+        mostrarToastInfoGlobal('Digite pelo menos 2 caracteres para buscar');
         return;
     }
 
@@ -125,7 +172,7 @@ async function buscarProdutos() {
 
         // Se erro 402 (Payment Required - saldo insuficiente)
         if (response.status === 402) {
-            alert(`❌ ${data.detail.mensagem}\n\n💡 ${data.detail.dica}`);
+            mostrarToastErroGlobal(`${data.detail.mensagem} - ${data.detail.dica}`);
             document.getElementById('loading').classList.remove('show');
             document.getElementById('searchBtn').disabled = false;
             return;
@@ -152,7 +199,7 @@ async function buscarProdutos() {
         }
     } catch (error) {
         console.error('Erro ao buscar produtos:', error);
-        alert('Erro ao buscar produtos. Verifique se o servidor está rodando.');
+        mostrarToastErroGlobal('Erro ao buscar produtos. Verifique se o servidor esta rodando.');
     } finally {
         document.getElementById('loading').classList.remove('show');
         document.getElementById('searchBtn').disabled = false;
@@ -679,7 +726,7 @@ async function verPromocoesSupermercado(supermercado) {
     } catch (error) {
         modalLoading.remove();
         console.error('Erro ao buscar promoções:', error);
-        alert('Erro ao buscar promoções. Tente novamente.');
+        mostrarToastErroGlobal('Erro ao buscar promocoes. Tente novamente.');
     }
 }
 

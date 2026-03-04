@@ -303,10 +303,26 @@
         </div>
     </div>
 
+    <script src="/src/app.js?v=20250108c"></script>
     <script>
-        const API_URL = 'http://localhost:8000';
+        // Auth guard
+        if (!localStorage.getItem('auth_token')) {
+            window.location.href = '/?login=required';
+        }
+
         let userLatitude = null;
         let userLongitude = null;
+
+        // Auto-preencher usuario e tornar readonly
+        window.addEventListener('DOMContentLoaded', () => {
+            const usuarioInput = document.getElementById('usuarioNome');
+            const usuarioLogado = localStorage.getItem('usuario_nome');
+            if (usuarioInput && usuarioLogado) {
+                usuarioInput.value = usuarioLogado;
+                usuarioInput.readOnly = true;
+                usuarioInput.style.background = '#f0f0f0';
+            }
+        });
 
         // Get user city location for geocoding store addresses
         window.addEventListener('DOMContentLoaded', () => {

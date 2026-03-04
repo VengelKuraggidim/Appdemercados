@@ -900,6 +900,10 @@
                 <span class="menu-item-icon">👥</span>
                 Ver Contribuições
             </a>
+            <a href="/moderador.html" class="menu-item" id="menuModerador" style="display:none;">
+                <span class="menu-item-icon">🛡️</span>
+                Painel Moderador
+            </a>
         </div>
     </aside>
 
@@ -1258,6 +1262,39 @@
         // Não redeclarar API_URL - já existe no app.js
         const API_URL_AUTH = 'http://localhost:8000/api';
         let usuarioAtual = localStorage.getItem('usuario_nome') || null;
+        let isModerador = false;
+
+        // Verificar sessao JWT ao carregar
+        async function verificarSessao() {
+            const token = localStorage.getItem('auth_token');
+            if (!token) {
+                if (usuarioAtual) { fazerLogout(); }
+                return;
+            }
+            try {
+                const resp = await fetch(`${API_URL_AUTH}/auth/verificar`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    usuarioAtual = data.usuario_nome;
+                    isModerador = data.is_moderador;
+                    atualizarMenuModerador();
+                } else {
+                    // Token invalido
+                    fazerLogout();
+                }
+            } catch (e) {
+                console.warn('Erro ao verificar sessao:', e);
+            }
+        }
+
+        function atualizarMenuModerador() {
+            const menuMod = document.getElementById('menuModerador');
+            if (menuMod) {
+                menuMod.style.display = isModerador ? 'flex' : 'none';
+            }
+        }
 
         // Toggle Sidebar
         function toggleSidebar() {
@@ -1321,6 +1358,9 @@
                 return;
             }
 
+            const btnEntrar = document.getElementById('btnEntrar');
+            if (btnEntrar) { btnEntrar.disabled = true; btnEntrar.textContent = 'Entrando...'; }
+
             try {
                 const response = await fetch(`${API_URL_AUTH}/auth/login`, {
                     method: 'POST',
@@ -1334,8 +1374,12 @@
                     usuarioAtual = data.usuario_nome;
                     localStorage.setItem('usuario_nome', data.usuario_nome);
                     localStorage.setItem('cpf', cpf);
+                    if (data.token) {
+                        localStorage.setItem('auth_token', data.token);
+                    }
                     mostrarUsuarioLogado();
                     await atualizarCarteira();
+                    await verificarSessao();
                     mostrarToastSucesso(`Bem-vindo(a), ${data.usuario_nome}!`, '👋');
                 } else {
                     mostrarToastErro(data.mensagem);
@@ -1343,6 +1387,8 @@
             } catch (error) {
                 console.error('Erro ao fazer login:', error);
                 mostrarToastErro('Erro ao conectar com o servidor');
+            } finally {
+                if (btnEntrar) { btnEntrar.disabled = false; btnEntrar.textContent = 'Entrar'; }
             }
         }
 
@@ -1367,6 +1413,9 @@
                 return;
             }
 
+            const btnCriarConta = document.getElementById('btnCriarConta');
+            if (btnCriarConta) { btnCriarConta.disabled = true; btnCriarConta.textContent = 'Criando conta...'; }
+
             try {
                 const response = await fetch(`${API_URL_AUTH}/auth/registrar?usuario_nome=${encodeURIComponent(nome)}&cpf=${cpf}&senha=${encodeURIComponent(senha)}`, {
                     method: 'POST',
@@ -1380,24 +1429,33 @@
                     usuarioAtual = data.usuario_nome;
                     localStorage.setItem('usuario_nome', data.usuario_nome);
                     localStorage.setItem('cpf', cpf);
+                    if (data.token) {
+                        localStorage.setItem('auth_token', data.token);
+                    }
                     mostrarUsuarioLogado();
                     await atualizarCarteira();
+                    await verificarSessao();
                 } else {
                     mostrarToastErro(data.mensagem);
                 }
             } catch (error) {
                 console.error('Erro ao registrar:', error);
                 mostrarToastErro('Erro ao conectar com o servidor');
+            } finally {
+                if (btnCriarConta) { btnCriarConta.disabled = false; btnCriarConta.textContent = 'Criar Conta'; }
             }
         }
 
         // Logout
         function fazerLogout() {
             usuarioAtual = null;
+            isModerador = false;
             localStorage.removeItem('usuario_nome');
             localStorage.removeItem('cpf');
+            localStorage.removeItem('auth_token');
             mostrarFormularioLogin();
             document.getElementById('walletCard').style.display = 'none';
+            atualizarMenuModerador();
         }
 
         // Mostrar usuário logado
@@ -2046,9 +2104,17 @@
                 console.log('Usuário logado:', usuarioAtual);
                 mostrarUsuarioLogado();
                 atualizarCarteira();
+                verificarSessao();
             } else {
                 console.log('Nenhum usuário logado - mostrando formulário de login');
                 mostrarFormularioLogin();
+            }
+
+            // Detectar ?login=required na URL
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('login') === 'required') {
+                mostrarToastInfo('Faca login para continuar', '🔒');
+                window.history.replaceState({}, '', '/');
             }
 
             console.log('=== Configuração concluída ===');
@@ -2442,7 +2508,7 @@
             try {
                 const response = await fetch(`${API_URL_AUTH}/dao/votar`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         sugestao_id: sugestaoId,
                         usuario_nome: usuarioAtual,
@@ -2471,24 +2537,24 @@
                     // Recarregar sugestões
                     carregarSugestoesDAO();
                 } else {
-                    alert(data.detail || 'Erro ao votar');
+                    mostrarToastErro(data.detail || 'Erro ao votar');
                 }
             } catch (error) {
                 console.error('Erro ao votar:', error);
-                alert('Erro ao processar voto');
+                mostrarToastErro('Erro ao processar voto');
             }
         }
 
         async function carregarComentariosDAO() {
+            const lista = document.getElementById('daoListaComentarios');
+            lista.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">Carregando comentarios...</div>';
             try {
                 const usuario = localStorage.getItem('usuario_nome') || 'Anônimo';
                 const response = await fetch(`${API_URL_AUTH}/dao/comentarios?limite=50&usuario_atual=${usuario}`);
                 const comentarios = await response.json();
 
-                const lista = document.getElementById('daoListaComentarios');
-
                 if (comentarios.length === 0) {
-                    lista.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Nenhum comentário ainda. Seja o primeiro!</div>';
+                    lista.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;"><div style="font-size: 48px; margin-bottom: 10px;">💬</div>Nenhum comentario ainda.<br><small style="color: #bbb;">Seja o primeiro a compartilhar sua opiniao!</small></div>';
                     return;
                 }
 
@@ -2550,8 +2616,9 @@
             }
 
             try {
-                const response = await fetch(`${API_URL_AUTH}/dao/comentarios/${comentarioId}/votar?usuario_nome=${usuario}&tipo=${tipo}`, {
-                    method: 'POST'
+                const response = await fetch(`${API_URL_AUTH}/dao/comentarios/${comentarioId}/votar?tipo=${tipo}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
                 });
 
                 if (response.ok) {
@@ -2573,7 +2640,7 @@
             try {
                 const response = await fetch(`${API_URL_AUTH}/dao/comentarios`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         usuario_nome: usuarioAtual,
                         conteudo: texto
@@ -2595,6 +2662,8 @@
 
         // Sugestões
         async function carregarSugestoesDAO(status = '') {
+            const lista = document.getElementById('daoListaSugestoes');
+            lista.innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">Carregando sugestoes...</div>';
             try {
                 const url = status ? `${API_URL_AUTH}/dao/sugestoes?status=${status}` : `${API_URL_AUTH}/dao/sugestoes`;
                 const response = await fetch(url);
@@ -2622,10 +2691,8 @@
                 const moderadores = Array.from(moderadoresSet);
                 await Promise.all(moderadores.map(m => buscarReputacaoModerador(m)));
 
-                const lista = document.getElementById('daoListaSugestoes');
-
                 if (sugestoes.length === 0) {
-                    lista.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Nenhuma sugestão encontrada</div>';
+                    lista.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;"><div style="font-size: 48px; margin-bottom: 10px;">💡</div>Nenhuma sugestao ativa.<br><small style="color: #bbb;">Crie uma sugestao para melhorar o app!</small></div>';
                     return;
                 }
 
@@ -2663,7 +2730,7 @@
                                 </div>
                             ` : ''}
 
-                            ${s.status === 'pendente_aprovacao' && usuarioAtual === 'Vengel' ? `
+                            ${s.status === 'pendente_aprovacao' && isModerador ? `
                                 <div style="margin-top: 15px; display: flex; gap: 10px;">
                                     <button onclick="aprovarSugestaoDAO(${s.id})" style="background: var(--success-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">✅ Aprovar</button>
                                     <button onclick="rejeitarSugestaoDAO(${s.id})" style="background: var(--danger-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">❌ Rejeitar</button>
@@ -2743,7 +2810,7 @@
             try {
                 const response = await fetch(`${API_URL_AUTH}/dao/sugestoes`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         usuario_nome: usuarioAtual,
                         titulo,
@@ -2774,7 +2841,7 @@
             try {
                 const response = await fetch(`${API_URL_AUTH}/dao/sugestoes/${id}/aprovar`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         sugestao_id: id,
                         usuario_nome: usuarioAtual
@@ -2799,7 +2866,7 @@
                     try {
                         const response = await fetch(`${API_URL_AUTH}/dao/sugestoes/${id}/rejeitar`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: getAuthHeaders(),
                             body: JSON.stringify({
                                 sugestao_id: id,
                                 usuario_admin: usuarioAtual,
@@ -2879,7 +2946,7 @@
                 try {
                     const response = await fetch(`${API_URL_AUTH}/moderadores/aceitar-implementar`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getAuthHeaders(),
                         body: JSON.stringify({
                             sugestao_id: sugestaoId,
                             moderador_nome: usuarioAtual
@@ -2958,7 +3025,7 @@
                 try {
                     const response = await fetch(`${API_URL_AUTH}/moderadores/marcar-implementada`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getAuthHeaders(),
                         body: JSON.stringify({
                             sugestao_id: sugestaoId,
                             moderador_nome: usuarioAtual
@@ -3399,7 +3466,7 @@
             try {
                 const response = await fetch(`${API_URL_AUTH}/dao/votar`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         sugestao_id: sugestaoAtualDAO,
                         usuario_nome: usuarioAtual,
@@ -3558,7 +3625,7 @@
                         </button>
                     ` : ''}
 
-                    ${s.status === 'aprovada' && usuarioAtual === 'Vengel' ? `
+                    ${s.status === 'aprovada' && isModerador ? `
                         <button onclick="aceitarImplementarDAO(${s.id})" style="background: linear-gradient(135deg, #2196F3, #1976D2); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;">
                             🛠️ Aceitar Implementação
                         </button>

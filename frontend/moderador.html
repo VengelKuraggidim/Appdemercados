@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <title>Painel do Moderador - Comparador de Precos</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+            --danger-color: #f44336;
+            --warning-color: #ff9800;
+            --success-color: #4CAF50;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 1.5rem; margin-bottom: 5px; }
+        .header p { opacity: 0.9; font-size: 0.9rem; }
+
+        .back-link {
+            color: white;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 10px;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .back-link:hover { opacity: 1; }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-card .stat-label {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sugestao-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            transition: box-shadow 0.2s;
+        }
+        .sugestao-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+        .sugestao-card .titulo { font-weight: 600; font-size: 15px; margin-bottom: 5px; }
+        .sugestao-card .descricao { font-size: 13px; color: #666; margin-bottom: 10px; }
+        .sugestao-card .meta { font-size: 12px; color: #999; display: flex; gap: 15px; flex-wrap: wrap; }
+
+        .btn {
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-approve { background: var(--success-color); color: white; }
+        .btn-reject { background: var(--danger-color); color: white; }
+        .btn-accept { background: var(--secondary-color); color: white; }
+        .btn-complete { background: linear-gradient(135deg, #FFD700, #FFA500); color: white; }
+
+        .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+        .empty-state .emoji { font-size: 48px; margin-bottom: 10px; }
+
+        .loading { text-align: center; padding: 20px; color: #999; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-voting { background: #e3f2fd; color: #1565c0; }
+        .badge-approved { background: #e8f5e9; color: #2e7d32; }
+        .badge-implementing { background: #f3e5f5; color: #7b1fa2; }
+
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/" class="back-link">← Voltar ao Comparador</a>
+        <h1>🛡️ Painel do Moderador</h1>
+        <p id="moderadorNome"></p>
+    </div>
+
+    <div class="container">
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value" id="statAprovadas" style="color: var(--success-color);">-</div>
+                <div class="stat-label">Aprovadas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statImplementadas" style="color: var(--secondary-color);">-</div>
+                <div class="stat-label">Implementadas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statTokens" style="color: #FF9800;">-</div>
+                <div class="stat-label">Tokens Ganhos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statReputacao" style="color: #9C27B0;">-</div>
+                <div class="stat-label">Reputacao</div>
+            </div>
+        </div>
+
+        <div class="section" id="secaoPendentes">
+            <h2>📋 Fila Pendente de Aprovacao</h2>
+            <div id="listaPendentes" class="loading">Carregando...</div>
+        </div>
+
+        <div class="section" id="secaoImplementando">
+            <h2>🔨 Em Implementacao</h2>
+            <div id="listaImplementando" class="loading">Carregando...</div>
+        </div>
+
+        <div class="section" id="secaoDisponiveis">
+            <h2>✅ Disponiveis para Implementacao</h2>
+            <div id="listaDisponiveis" class="loading">Carregando...</div>
+        </div>
+    </div>
+
+    <script src="/src/app.js?v=20250108c"></script>
+    <script>
+        // Auth guard
+        if (!localStorage.getItem('auth_token')) {
+            window.location.href = '/?login=required';
+        }
+
+        const API_BASE = 'http://localhost:8000/api';
+        const usuario = localStorage.getItem('usuario_nome');
+
+        // Verificar se e moderador
+        async function verificarModerador() {
+            try {
+                const resp = await fetch(`${API_BASE}/auth/verificar`, {
+                    headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+                });
+                if (!resp.ok) {
+                    window.location.href = '/?login=required';
+                    return false;
+                }
+                const data = await resp.json();
+                if (!data.is_moderador) {
+                    document.querySelector('.container').innerHTML = `
+                        <div class="empty-state" style="margin-top: 40px;">
+                            <div class="emoji">🚫</div>
+                            <p>Voce nao tem permissao de moderador.</p>
+                            <a href="/" style="color: var(--secondary-color); margin-top: 10px; display: inline-block;">Voltar ao inicio</a>
+                        </div>
+                    `;
+                    return false;
+                }
+                document.getElementById('moderadorNome').textContent = `Moderador: ${data.usuario_nome}`;
+                return true;
+            } catch (e) {
+                console.error('Erro ao verificar moderador:', e);
+                return false;
+            }
+        }
+
+        function mostrarToast(msg, cor = '#4CAF50') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed; top: 20px; right: 20px;
+                background: ${cor}; color: white;
+                padding: 16px 24px; border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000; max-width: 400px;
+                font-size: 14px; animation: slideIn 0.3s ease;
+            `;
+            toast.innerHTML = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function carregarStats() {
+            try {
+                const resp = await fetch(`${API_BASE}/moderadores/${encodeURIComponent(usuario)}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    document.getElementById('statAprovadas').textContent = data.total_sugestoes_aprovadas;
+                    document.getElementById('statImplementadas').textContent = data.total_sugestoes_implementadas;
+                    document.getElementById('statTokens').textContent = data.tokens_ganhos_total.toFixed(1);
+                    document.getElementById('statReputacao').textContent = data.reputacao_moderador;
+                }
+            } catch (e) {
+                console.error('Erro stats:', e);
+            }
+        }
+
+        function formatarData(dataStr) {
+            if (!dataStr) return '';
+            const d = new Date(dataStr);
+            return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+        }
+
+        function renderSugestaoCard(s, acoes) {
+            const statusBadges = {
+                'pendente_aprovacao': '<span class="badge badge-pending">Pendente</span>',
+                'em_votacao': '<span class="badge badge-voting">Em Votacao</span>',
+                'aprovada': '<span class="badge badge-approved">Aprovada</span>',
+                'em_implementacao': '<span class="badge badge-implementing">Em Implementacao</span>'
+            };
+            return `
+                <div class="sugestao-card">
+                    <div class="titulo">${s.titulo}</div>
+                    <div class="descricao">${s.descricao}</div>
+                    <div class="meta">
+                        <span>👤 ${s.usuario_nome}</span>
+                        <span>📅 ${formatarData(s.data_criacao)}</span>
+                        <span>💰 ${s.tokens_escrow || 0} tokens escrow</span>
+                        ${statusBadges[s.status] || ''}
+                    </div>
+                    ${acoes ? `<div class="actions">${acoes}</div>` : ''}
+                </div>
+            `;
+        }
+
+        async function carregarPendentes() {
+            const container = document.getElementById('listaPendentes');
+            try {
+                const resp = await fetch(`${API_BASE}/dao/sugestoes?status=pendente_aprovacao`);
+                const data = await resp.json();
+                if (data.length === 0) {
+                    container.innerHTML = `<div class="empty-state"><div class="emoji">✨</div><p>Nenhuma sugestao pendente! Tudo em dia.</p></div>`;
+                    return;
+                }
+                container.innerHTML = data.map(s => renderSugestaoCard(s, `
+                    <button class="btn btn-approve" onclick="aprovarSugestao(${s.id})">✅ Aprovar</button>
+                    <button class="btn btn-reject" onclick="rejeitarSugestao(${s.id})">❌ Rejeitar</button>
+                `)).join('');
+            } catch (e) {
+                container.innerHTML = '<div class="empty-state"><p>Erro ao carregar</p></div>';
+            }
+        }
+
+        async function carregarImplementando() {
+            const container = document.getElementById('listaImplementando');
+            try {
+                const resp = await fetch(`${API_BASE}/dao/sugestoes?status=em_implementacao`);
+                const data = await resp.json();
+                const minhas = data.filter(s => s.moderador_implementador === usuario);
+                if (minhas.length === 0) {
+                    container.innerHTML = `<div class="empty-state"><div class="emoji">🔧</div><p>Nenhuma implementacao em andamento.</p></div>`;
+                    return;
+                }
+                container.innerHTML = minhas.map(s => renderSugestaoCard(s, `
+                    <button class="btn btn-complete" onclick="concluirImplementacao(${s.id})">🎉 Concluir</button>
+                `)).join('');
+            } catch (e) {
+                container.innerHTML = '<div class="empty-state"><p>Erro ao carregar</p></div>';
+            }
+        }
+
+        async function carregarDisponiveis() {
+            const container = document.getElementById('listaDisponiveis');
+            try {
+                const resp = await fetch(`${API_BASE}/dao/sugestoes?status=aprovada`);
+                const data = await resp.json();
+                if (data.length === 0) {
+                    container.innerHTML = `<div class="empty-state"><div class="emoji">📭</div><p>Nenhuma sugestao disponivel para implementacao.</p></div>`;
+                    return;
+                }
+                container.innerHTML = data.map(s => renderSugestaoCard(s, `
+                    <button class="btn btn-accept" onclick="aceitarImplementar(${s.id})">🛠️ Aceitar Implementacao</button>
+                `)).join('');
+            } catch (e) {
+                container.innerHTML = '<div class="empty-state"><p>Erro ao carregar</p></div>';
+            }
+        }
+
+        async function aprovarSugestao(id) {
+            try {
+                const resp = await fetch(`${API_BASE}/dao/sugestoes/${id}/aprovar`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ sugestao_id: id, usuario_nome: usuario })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    mostrarToast('Sugestao aprovada!');
+                    recarregarTudo();
+                } else {
+                    mostrarToast(data.detail || 'Erro', '#f44336');
+                }
+            } catch (e) {
+                mostrarToast('Erro ao aprovar', '#f44336');
+            }
+        }
+
+        async function rejeitarSugestao(id) {
+            const motivo = prompt('Motivo da rejeicao:');
+            if (!motivo) return;
+            try {
+                const resp = await fetch(`${API_BASE}/dao/sugestoes/${id}/rejeitar`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ sugestao_id: id, usuario_admin: usuario, motivo })
+                });
+                if (resp.ok) {
+                    mostrarToast('Sugestao rejeitada');
+                    recarregarTudo();
+                } else {
+                    const data = await resp.json();
+                    mostrarToast(data.detail || 'Erro', '#f44336');
+                }
+            } catch (e) {
+                mostrarToast('Erro ao rejeitar', '#f44336');
+            }
+        }
+
+        async function aceitarImplementar(id) {
+            try {
+                const resp = await fetch(`${API_BASE}/moderadores/aceitar-implementar`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ sugestao_id: id, moderador_nome: usuario })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    mostrarToast('Implementacao aceita!');
+                    recarregarTudo();
+                } else {
+                    mostrarToast(data.detail || 'Erro', '#f44336');
+                }
+            } catch (e) {
+                mostrarToast('Erro ao aceitar', '#f44336');
+            }
+        }
+
+        async function concluirImplementacao(id) {
+            if (!confirm('Confirmar conclusao da implementacao?')) return;
+            try {
+                const resp = await fetch(`${API_BASE}/moderadores/marcar-implementada`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ sugestao_id: id, moderador_nome: usuario })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    mostrarToast(`Implementacao concluida! +${data.tokens_recebidos || 5} tokens`, '#FFD700');
+                    recarregarTudo();
+                } else {
+                    mostrarToast(data.detail || 'Erro', '#f44336');
+                }
+            } catch (e) {
+                mostrarToast('Erro ao concluir', '#f44336');
+            }
+        }
+
+        function recarregarTudo() {
+            carregarStats();
+            carregarPendentes();
+            carregarImplementando();
+            carregarDisponiveis();
+        }
+
+        // Inicializar
+        (async () => {
+            const isMod = await verificarModerador();
+            if (isMod) {
+                recarregarTudo();
+            }
+        })();
+    </script>
+</body>
+</html>

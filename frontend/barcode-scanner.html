@@ -256,8 +256,13 @@
         <div id="resultado" class="hidden"></div>
     </div>
 
+    <script src="/src/app.js?v=20250108c"></script>
     <script>
-        const API_URL = 'http://localhost:8000';
+        // Auth guard
+        if (!localStorage.getItem('auth_token')) {
+            window.location.href = '/?login=required';
+        }
+
         let video, canvas, ctx;
         let scanning = false;
         let stream = null;
@@ -324,7 +329,7 @@
                 scanFrame();
             } catch (error) {
                 console.error('Erro ao acessar camera:', error);
-                alert('Nao foi possivel acessar a camera. Verifique as permissoes.');
+                mostrarToastErroGlobal('Nao foi possivel acessar a camera. Verifique as permissoes.');
             }
         }
 
